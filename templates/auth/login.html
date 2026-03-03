@@ -22,7 +22,11 @@
             <p>서비스 이용을 위해 로그인이 필요합니다.</p>
         </div>
 
-        <form class="login-form" id="loginForm" method="post" onsubmit="return handleLogin(event)">
+        {% if error %}
+        <p style="color: red; text-align: center; margin-bottom: 15px; font-weight: bold;">{{ error }}</p>
+        {% endif %}
+
+        <form class="login-form" id="loginForm" action="/auth/login" method="post" onsubmit="return handleLogin(event)">
 
             <div class="input-group">
                 <label for="userId">아이디</label>

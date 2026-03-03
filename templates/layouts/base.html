@@ -23,8 +23,15 @@
     </nav>
     <div class="auth-links">
         {% block auth_links %}
-        <a href="/auth/login">로그인</a>
-        <a href="/auth/agree" class="btn-signup">회원가입</a>
+            {% if request.cookies.get("login_user") %}
+                <span style="margin-right: 15px; font-weight: bold; color: #333;">
+                    {{ request.cookies.get("login_user") }}님 환영합니다
+                </span>
+                <a href="/auth/logout" style="color: #666; text-decoration: none;">로그아웃</a>
+            {% else %}
+                <a href="/auth/login">로그인</a>
+                <a href="/auth/agree" class="btn-signup">회원가입</a>
+            {% endif %}
         {% endblock %}
     </div>
   </header>
