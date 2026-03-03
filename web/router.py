@@ -3,9 +3,8 @@ from sqlalchemy.orm import Session
 
 from services.resume_service import (
     DEFAULT_MODEL,
-    create_resume_record,         
-    analyze_saved_resume,         
-    get_resume_analysis_result,   
+    create_resume_record,
+    analyze_saved_resume,
 )
 
 from fastapi.templating import Jinja2Templates
