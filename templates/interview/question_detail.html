@@ -9,13 +9,12 @@
 {% block content %}
 <div class="question-detail-wrapper">
     <div class="container">
-        
         <div id="mode-standby" class="mode-container active">
             <div class="page-label-standby">질문 상세</div>
 
             <div class="question-card">
-                <div class="question-number">Question 1</div>
-                <div class="question-text">자기소개를 간단하게 해주세요.</div>
+                <div class="question-number">Question {{ question_item.sel_order_no }}</div>
+                <div class="question-text">{{ question_item.question_text }}</div>
             </div>
 
             <div class="record-area">
@@ -31,8 +30,8 @@
             <div class="page-label-recording">🔴 녹음 중 (Recording)</div>
 
             <div class="question-card" style="padding: 50px 40px; margin-bottom: 40px;">
-                <div class="question-number">Question 1</div>
-                <div class="question-text">자기소개를 간단하게 해주세요.</div>
+                <div class="question-number">Question {{ question_item.sel_order_no }}</div>
+                <div class="question-text">{{ question_item.question_text }}</div>
             </div>
 
             <div class="recording-visual">
@@ -47,7 +46,6 @@
                 녹음 완료
             </button>
         </div>
-
     </div>
 </div>
 {% endblock %}

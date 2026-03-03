@@ -9,16 +9,12 @@
 {% block content %}
 <div class="weakness-detail-wrapper">
     <div class="container">
-        
         <div id="mode-standby" class="mode-container active">
             <div class="page-label-standby">약점 보강 상세</div>
 
             <div class="question-card">
-                <div class="question-number">Weakness Q1</div>
-                <div class="question-text">
-                    해당 문제를 해결하는 과정에서 팀원들과 의견 충돌은 없었나요?<br>
-                    있었다면, 구체적으로 어떻게 의견을 조율했는지 말씀해 주세요.
-                </div>
+                <div class="question-number">Weakness Q{{ weakness_item.sel_order_no }}</div>
+                <div class="question-text">{{ weakness_item.question_text }}</div>
             </div>
 
             <div class="record-area">
@@ -34,11 +30,8 @@
             <div class="page-label-recording">🔴 보강 녹음 중 (Reinforcement)</div>
 
             <div class="question-card" style="padding: 50px 40px; margin-bottom: 40px;">
-                <div class="question-number">Weakness Q1</div>
-                <div class="question-text">
-                    해당 문제를 해결하는 과정에서 팀원들과 의견 충돌은 없었나요?<br>
-                    있었다면, 구체적으로 어떻게 의견을 조율했는지 말씀해 주세요.
-                </div>
+                <div class="question-number">Weakness Q{{ weakness_item.sel_order_no }}</div>
+                <div class="question-text">{{ weakness_item.question_text }}</div>
             </div>
 
             <div class="recording-visual">
@@ -53,7 +46,6 @@
                 녹음 완료
             </button>
         </div>
-
     </div>
 </div>
 {% endblock %}

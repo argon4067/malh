@@ -12,33 +12,18 @@
         <h2 class="page-title">텍스트 보기</h2>
 
         <div class="question-box">
-            <span class="q-badge">Question 1</span>
-            <div class="q-text">
-                지원자가 최근 수행한 프로젝트 중 가장 어려웠던 문제 상황과 해결 과정을 설명해 주십시오.
-            </div>
+            <span class="q-badge">Question {{ transcript_item.sel_order_no }}</span>
+            <div class="q-text">{{ transcript_item.question_text }}</div>
         </div>
 
         <div class="audio-player">
-            <div class="play-btn" id="playBtn" onclick="togglePlay()">▶</div>
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-fill" id="progressFill"></div>
-                <div class="progress-head" id="progressHead"></div>
-            </div>
-            <div class="time-display" id="timeDisplay">00:00 / 00:40</div>
+            <div class="time-display">답변 길이: {{ transcript_item.duration_sec }}초</div>
         </div>
 
         <div class="script-container">
-            <div class="speaker-label">면접자 답변</div>
+            <div class="speaker-label">면접 답변</div>
             <div class="script-content">
-                <span class="script-sentence" onclick="seekToSentence(0)" id="sent1">
-                    저는 대규모 사용자 로그 데이터를 실시간으로 처리하는 시스템을 구축하는 프로젝트를 수행한 경험이 있습니다.
-                </span>
-                <span class="script-sentence" onclick="seekToSentence(10)" id="sent2">
-                    초기 설계 단계에서 데이터 처리 지연이 발생하는 문제가 확인되었으며 원인은 비동기 처리 구조가 충분히 최적화되지 않은 점으로 분석되었습니다.
-                </span>
-                <span class="script-sentence" onclick="seekToSentence(25)" id="sent3">
-                    이를 해결하기 위해 메시지 큐 구조를 재설계하고 병렬 처리 단계를 세분화하여 처리 지연 시간을 기존 대비 절반 수준으로 감소시키는 결과를 도출하였습니다.
-                </span>
+                <span class="script-sentence">{{ transcript_item.transcript_text }}</span>
             </div>
         </div>
 

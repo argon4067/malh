@@ -1,6 +1,6 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}분석 결과 - 말해뭐해{% endblock %}
+{% block title %}遺꾩꽍 寃곌낵 - 留먰빐萸먰빐{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/result/result.css">
@@ -10,8 +10,8 @@
 <div class="result-container-wrapper">
     <div class="container">
         <div class="page-header">
-            <h2 class="page-title">분석 결과</h2>
-            <p class="page-desc">AI 면접 분석이 완료되었습니다. 각 질문별 상세 리포트를 확인하세요.</p>
+            <h2 class="page-title">遺꾩꽍 寃곌낵</h2>
+            <p class="page-desc">AI 硫댁젒 遺꾩꽍???꾨즺?섏뿀?듬땲?? 媛?吏덈Ц蹂??곸꽭 由ы룷?몃? ?뺤씤?섏꽭??</p>
         </div>
 
         <div class="result-list">
@@ -22,13 +22,13 @@
                         <span class="question-badge">Q{{ item.sel_order_no }}</span>
                         <div class="question-title">{{ item.question_text }}</div>
                         <div class="answer-meta">
-                            <span class="time-icon">⏱</span>
-                            답변 길이: <strong>{{ item.duration_sec }}초</strong>
+                            <span class="time-icon">??/span>
+                            ?듬? 湲몄씠: <strong>{{ item.duration_sec }}珥?/strong>
                         </div>
                     </div>
                     <div class="action-buttons">
-                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
+                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/text" class="btn-text">?뱞 ?띿뒪??蹂닿린</a>
+                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/analysis" class="btn-analysis">?뱤 遺꾩꽍 寃곌낵 蹂닿린</a>
                     </div>
                 </div>
                 {% endfor %}
@@ -36,8 +36,8 @@
                 <div class="result-card">
                     <div class="card-info">
                         <span class="question-badge">-</span>
-                        <div class="question-title">표시할 분석 결과가 없습니다.</div>
-                        <div class="answer-meta">면접 답변을 먼저 제출해 주세요.</div>
+                        <div class="question-title">?쒖떆??遺꾩꽍 寃곌낵媛 ?놁뒿?덈떎.</div>
+                        <div class="answer-meta">硫댁젒 ?듬???癒쇱? ?쒖텧??二쇱꽭??</div>
                     </div>
                 </div>
             {% endif %}

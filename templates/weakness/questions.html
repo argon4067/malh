@@ -12,53 +12,30 @@
         <div class="page-header">
             <h2 class="page-title">약점 보강</h2>
             <p class="page-desc">
-                AI 분석 결과 발견된 <span class="highlight">약점(구체성 부족, 맥락 부적합 등)</span>을<br>
-                보완하기 위해 생성된 5가지 맞춤형 심화 질문입니다.
+                AI 분석 결과를 바탕으로 보완이 필요한 질문 목록입니다.<br>
+                각 항목을 눌러 보강 답변을 진행하세요.
             </p>
         </div>
 
         <div class="question-list">
-            
-            <div class="question-card" onclick="goToWeaknessDetail(1)">
-                <div class="card-left">
-                    <span class="q-label">Weakness Q1</span>
-                    <div class="q-text">해당 문제를 해결하는 과정에서 팀원들과 의견 충돌은 없었나요? 구체적인 조율 과정을 설명해주세요.</div>
+            {% if weakness_items %}
+                {% for item in weakness_items %}
+                <div class="question-card" onclick="goToWeaknessDetail({{ item.sel_id }})">
+                    <div class="card-left">
+                        <span class="q-label">Weakness Q{{ item.sel_order_no }}</span>
+                        <div class="q-text">{{ item.question_text }}</div>
+                    </div>
+                    <div class="card-right">→</div>
                 </div>
-                <div class="card-right">➜</div>
-            </div>
-
-            <div class="question-card" onclick="goToWeaknessDetail(2)">
-                <div class="card-left">
-                    <span class="q-label">Weakness Q2</span>
-                    <div class="q-text">설명하신 해결책 외에 다른 대안은 없었나요? 그 대안을 선택하지 않은 이유는 무엇인가요?</div>
+                {% endfor %}
+            {% else %}
+                <div class="question-card">
+                    <div class="card-left">
+                        <span class="q-label">-</span>
+                        <div class="q-text">표시할 약점 보강 질문이 없습니다.</div>
+                    </div>
                 </div>
-                <div class="card-right">➜</div>
-            </div>
-
-            <div class="question-card" onclick="goToWeaknessDetail(3)">
-                <div class="card-left">
-                    <span class="q-label">Weakness Q3</span>
-                    <div class="q-text">이번 프로젝트를 통해 기술적으로 가장 크게 성장했다고 느끼는 부분은 무엇인가요?</div>
-                </div>
-                <div class="card-right">➜</div>
-            </div>
-
-            <div class="question-card" onclick="goToWeaknessDetail(4)">
-                <div class="card-left">
-                    <span class="q-label">Weakness Q4</span>
-                    <div class="q-text">결과 수치(50% 단축)를 도출한 구체적인 측정 환경과 기준은 무엇이었나요?</div>
-                </div>
-                <div class="card-right">➜</div>
-            </div>
-
-            <div class="question-card" onclick="goToWeaknessDetail(5)">
-                <div class="card-left">
-                    <span class="q-label">Weakness Q5</span>
-                    <div class="q-text">만약 동일한 상황이 다시 발생한다면, 아키텍처 설계 단계에서 어떤 점을 보완하시겠습니까?</div>
-                </div>
-                <div class="card-right">➜</div>
-            </div>
-
+            {% endif %}
         </div>
 
         <div class="bottom-action">
