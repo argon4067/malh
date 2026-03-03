@@ -7,7 +7,9 @@ pydantic-settings
 aiosqlite
 python-dotenv
 pymysql
-openai
 bcrypt==4.0.1
+python-docx
+pymupdf
+openai
 passlib
 faster-whisper

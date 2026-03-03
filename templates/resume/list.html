@@ -21,121 +21,109 @@
             <div class="dashboard-header">
                 <div class="header-left">
                     <h2>이력서 관리</h2>
-                    <p id="total-count-txt">3개의 이력서가 등록되어 있습니다.</p>
+                    <!-- ✅ 변경: 실제 개수 반영 -->
+                    <p id="total-count-txt">{{ resumes|length }}개의 이력서가 등록되어 있습니다.</p>
                 </div>
                 <button class="add-btn" id="go-upload-btn">
                     <span>+</span> 이력서 등록
                 </button>
             </div>
 
+            <!-- ✅ 변경: JS에서 사용할 숨김 값 -->
+            <input type="hidden" id="userIdInput" value="1">
+            <input type="hidden" id="modelInput" value="{{ default_model }}">
+
             <div class="card-list-wrapper" id="resume-list">
-                <div class="resume-card">
-                    <div class="card-header">
-                        <div class="file-icon">📄</div>
-                        <div class="file-info">
-                            <div class="file-name">이력서 1.pdf</div>
-                            <div class="file-meta">2.5MB</div>
+                <!-- ✅ 변경: 하드코딩 제거, DB 데이터 반복 렌더링 -->
+                {% if resumes %}
+                    {% for resume in resumes %}
+                    <div class="resume-card">
+                        <div class="card-header">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <div class="file-name">{{ resume.resume_file_name }}</div>
+                                <div class="file-meta">
+                                    {{ resume.resume_file_type }}
+                                    {% if resume.resume_file_size %}
+                                        • {{ (resume.resume_file_size / 1024 / 1024) | round(1) }}MB
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
-                        <button class="delete-btn">🗑️</button>
-                    </div>
-                    <div class="divider"></div>
-                    <div class="info-row">
-                        <span class="info-label">포지션</span>
-                        <span class="info-value">AI 개발자</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">경력</span>
-                        <span class="info-value">0년 (신입)</span>
-                    </div>
-                    <div class="tech-tags">
-                        <span class="tag">MySQL</span>
-                        <span class="tag">Python</span>
-                        <span class="tag tag-more">+2</span>
-                    </div>
-                    <div class="stats-area">
-                        <div class="stats-row">
-                            <span>연습 횟수</span>
-                            <span class="stats-val">5회</span>
-                        </div>
-                        <div class="stats-row">
-                            <span>마지막 사용</span>
-                            <span>2026-02-19</span>
-                        </div>
-                    </div>
-                    <button class="detail-btn">상세 보기 &gt;</button>
-                </div>
 
-                <div class="resume-card">
-                    <div class="card-header">
-                        <div class="file-icon">📄</div>
-                        <div class="file-info">
-                            <div class="file-name">백엔드_이력서_최종.pdf</div>
-                            <div class="file-meta">3.1MB</div>
-                        </div>
-                        <button class="delete-btn">🗑️</button>
-                    </div>
-                    <div class="divider"></div>
-                    <div class="info-row">
-                        <span class="info-label">포지션</span>
-                        <span class="info-value">백엔드 개발자</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">경력</span>
-                        <span class="info-value">1년 6개월</span>
-                    </div>
-                    <div class="tech-tags">
-                        <span class="tag">Java</span>
-                        <span class="tag">Spring Boot</span>
-                        <span class="tag tag-more">+1</span>
-                    </div>
-                    <div class="stats-area">
-                        <div class="stats-row">
-                            <span>연습 횟수</span>
-                            <span class="stats-val">2회</span>
-                        </div>
-                        <div class="stats-row">
-                            <span>마지막 사용</span>
-                            <span>2026-02-15</span>
-                        </div>
-                    </div>
-                    <button class="detail-btn">상세 보기 &gt;</button>
-                </div>
+                        <div class="divider"></div>
 
-                <div class="resume-card">
-                    <div class="card-header">
-                        <div class="file-icon">📄</div>
-                        <div class="file-info">
-                            <div class="file-name">PM_포트폴리오.pdf</div>
-                            <div class="file-meta">5.2MB</div>
+                        <div class="info-row">
+                            <span class="info-label">분석 상태</span>
+                            <span class="info-value" style="color:var(--primary-orange)">
+                                {% if resume.classification %}
+                                    분석 완료
+                                {% else %}
+                                    분석 대기중
+                                {% endif %}
+                            </span>
                         </div>
-                        <button class="delete-btn">🗑️</button>
-                    </div>
-                    <div class="divider"></div>
-                    <div class="info-row">
-                        <span class="info-label">포지션</span>
-                        <span class="info-value">서비스 기획자</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">경력</span>
-                        <span class="info-value">3년</span>
-                    </div>
-                    <div class="tech-tags">
-                        <span class="tag">Figma</span>
-                        <span class="tag">Jira</span>
-                        <span class="tag">SQL</span>
-                    </div>
-                    <div class="stats-area">
-                        <div class="stats-row">
-                            <span>연습 횟수</span>
-                            <span class="stats-val">8회</span>
+
+                        <div class="info-row">
+                            <span class="info-label">직무</span>
+                            <span class="info-value">
+                                {% if resume.classification and resume.classification.class_job_role %}
+                                    {{ resume.classification.class_job_role }}
+                                {% elif resume.classification and resume.classification.class_job_family %}
+                                    {{ resume.classification.class_job_family }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </span>
                         </div>
-                        <div class="stats-row">
-                            <span>마지막 사용</span>
-                            <span>2026-02-10</span>
+
+                        <div class="tech-tags">
+                            {% if resume.keywords %}
+                                {% for keyword in resume.keywords[:3] %}
+                                    <span class="tag">{{ keyword.keyword_keyword }}</span>
+                                {% endfor %}
+                                {% if resume.keywords|length > 3 %}
+                                    <span class="tag tag-more">+{{ resume.keywords|length - 3 }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="tag tag-more">분석 필요</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="stats-area">
+                            <div class="stats-row">
+                                <span>연습 횟수</span>
+                                <span class="stats-val">0회</span>
+                            </div>
+                            <div class="stats-row">
+                                <span>마지막 사용</span>
+                                <span>
+                                    {% if resume.resume_created_at %}
+                                        {{ resume.resume_created_at.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- ✅ 선택: 분석 완료된 경우 상세 보기 -->
+                        <button class="detail-btn" onclick="location.href='/resumes/{{ resume.resume_id }}'">
+                            상세 보기 &gt;
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="resume-card">
+                        <div class="card-header">
+                            <div class="file-icon">📄</div>
+                            <div class="file-info">
+                                <div class="file-name">등록된 이력서가 없습니다.</div>
+                                <div class="file-meta">새 이력서를 등록해 주세요.</div>
+                            </div>
                         </div>
                     </div>
-                    <button class="detail-btn">상세 보기 &gt;</button>
-                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -144,14 +132,16 @@
                 <button class="back-btn" id="back-to-list-btn">← 돌아가기</button>
                 <h2>새 이력서 등록</h2>
             </div>
-            
+
             <div class="upload-container">
                 <div class="upload-box" id="dropZone">
                     <div class="upload-icon">📁</div>
                     <p class="upload-text">파일을 이 곳으로 드래그하거나 클릭하세요</p>
                     <p class="upload-sub">PDF, Word (최대 10MB)</p>
-                    <input type="file" id="fileInput" hidden accept=".pdf,.doc,.docx">
                 </div>
+
+                <!-- ✅ 유지: JS와 연결되는 input -->
+                <input type="file" id="fileInput" hidden accept=".pdf,.docx">
             </div>
         </div>
     </div>

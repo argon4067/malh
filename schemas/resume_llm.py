@@ -4,12 +4,12 @@ from pydantic import BaseModel, Field
 JobFamily = Literal[
     "IT", "FINANCE", "MARKETING", "SALES", "DESIGN", "HR",
     "EDUCATION", "HEALTHCARE", "MANUFACTURING", "LOGISTICS",
-    "CUSTOMER_SERVICE", "LEGAL", "PUBLIC", "RESEARCH", "ETC"
+    "CUSTOMER_SERVICE", "LEGAL", "PUBLIC", "RESEARCH", "ETC",
 ]
 
 KeywordType = Literal[
     "SKILL", "TOOL", "DOMAIN_TERM", "CERTIFICATE", "ACHIEVEMENT",
-    "EDU", "SOFT_SKILL", "TASK", "INDUSTRY", "METRIC", "ETC"
+    "EDU", "SOFT_SKILL", "TASK", "INDUSTRY", "METRIC", "ETC",
 ]
 
 

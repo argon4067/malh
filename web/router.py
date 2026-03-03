@@ -1,7 +1,15 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Request, Depends, File, Form, UploadFile, status, HTTPException
+from sqlalchemy.orm import Session
+
+from services.resume_service import (
+    DEFAULT_MODEL,
+    create_resume_record,
+    analyze_saved_resume,
+    get_resume_analysis_result,
+)
+
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
-from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.audio_recording import AudioRecording
@@ -15,6 +23,8 @@ from services.stt_service import (
     run_stt_and_update,
     save_recording_and_upsert,
 )
+
+from models.resume import Resume
 
 # templates 폴더 경로 설정 (malh/templates)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -60,16 +70,82 @@ async def signup(request: Request):
 
 # Resume
 @web_router.get("/resumes")
-async def resume_list(request: Request):
-    return templates.TemplateResponse("resume/list.html", {"request": request})
+async def resume_list(
+    request: Request,
+    db: Session = Depends(get_db), 
+):
+    resumes = (                      
+        db.query(Resume)
+        .order_by(Resume.resume_id.desc())
+        .all()
+    )
 
-@web_router.get("/resumes/wait")
-async def resume_wait(request: Request):
-    return templates.TemplateResponse("resume/wait.html", {"request": request})
+    return templates.TemplateResponse(   
+        "resume/list.html",
+        {
+            "request": request,
+            "resume_id": None,
+            "default_model": DEFAULT_MODEL,
+            "resumes": resumes,
+        },
+    )
+
+@web_router.post("/resumes")
+async def create_resume(
+    user_id: int = Form(...),
+    model: str = Form(DEFAULT_MODEL),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="빈 파일입니다.")
+
+    resume = create_resume_record(
+        db=db,
+        user_id=user_id,
+        original_filename=file.filename or "resume.pdf",
+        data=data,
+    )
+
+    return {
+        "resume_id": resume.resume_id,
+        "model": model,
+    }
+
+@web_router.get("/resumes/{resume_id}/wait")
+async def resume_wait(
+    request: Request,
+    resume_id: int,
+    model: str = DEFAULT_MODEL,
+):
+    return templates.TemplateResponse(
+        "resume/wait.html",
+        {
+            "request": request,
+            "resume_id": resume_id,
+            "model": model,
+        },
+    )
 
 @web_router.get("/resumes/{resume_id}")
-async def resume_detail(request: Request, resume_id: int):
-    return templates.TemplateResponse("resume/detail.html", {"request": request, "resume_id": resume_id})
+async def resume_detail(
+    request: Request,
+    resume_id: int,
+    db: Session = Depends(get_db),   
+):
+    result = get_resume_analysis_result(db, resume_id)
+
+    return templates.TemplateResponse(
+        "resume/detail.html",
+        {
+            "request": request,
+            "resume_id": resume_id,
+            "resume": result["resume"],
+            "classification": result["classification"],
+            "keywords": result["keywords"],
+        },
+    )
 
 @web_router.get("/resumes/{resume_id}/feedback")
 async def resume_feedback(
@@ -85,6 +161,19 @@ async def resume_feedback(
             "session_id": _get_latest_session_id_by_resume(db, resume_id),
         },
     )
+
+@web_router.post("/resumes/{resume_id}/analyze")
+async def analyze_resume(
+    resume_id: int,
+    model: str = Form(DEFAULT_MODEL),
+    db: Session = Depends(get_db),
+):
+    analyze_saved_resume(
+        db=db,
+        resume_id=resume_id,
+        model=model,
+    )
+    return {"ok": True, "resume_id": resume_id}
 
 # Interview
 @web_router.get("/interviews/wait")

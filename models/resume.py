@@ -13,8 +13,8 @@ class Resume(Base):
     user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
     resume_file_name = Column(String(100), nullable=False)
     resume_file_type = Column(Enum("DOCX", "PDF"), nullable=False)
-    resume_file_path = Column(String(255), nullable=False)
-    resume_file_size = Column(Integer, nullable=True, comment="단위: 10(MB)")
+    resume_file_path = Column(String(255), nullable=True)
+    resume_file_size = Column(Integer, nullable=True, comment="단위: byte")
     resume_extracted_text = Column(LONGTEXT, nullable=True)
     resume_sha256 = Column(CHAR(64), nullable=True)
     resume_created_at = Column(
@@ -23,6 +23,7 @@ class Resume(Base):
     resume_updated_at = Column(
         DateTime, nullable=True, server_default=text("CURRENT_TIMESTAMP")
     )
+    
 
     user = relationship("User", back_populates="resumes")
     keywords = relationship("ResumeKeyword", back_populates="resume")
