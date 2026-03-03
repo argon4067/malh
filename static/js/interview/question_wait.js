@@ -1,19 +1,20 @@
 /**
- * question_wait.js - 질문 생성 프로세스 시뮬레이션 (jQuery)
+ * question_wait.js - question generation wait interactions
  */
 
-$(document).ready(function() {
+$(document).ready(function () {
     let progress = 0;
-    const $progressBar = $('#progressBar');
-    const $percentageText = $('#percentageText');
+    const $progressBar = $("#progressBar");
+    const $percentageText = $("#percentageText");
     let retryCount = 0;
 
-    /**
-     * [Logic] 진행률 시뮬레이션 시작
-     */
+    function getSessionIdFromPath() {
+        const match = window.location.pathname.match(/\/interviews\/(\d+)/);
+        return match ? Number(match[1]) : 0;
+    }
+
     function simulateGeneration() {
         const interval = setInterval(() => {
-            // 랜덤하게 진행률 증가 (1~8%)
             const increment = Math.floor(Math.random() * 8) + 1;
             progress += increment;
 
@@ -21,39 +22,35 @@ $(document).ready(function() {
                 progress = 100;
                 clearInterval(interval);
                 updateUI(progress);
-                
-                // 생성 완료 후 0.5초 뒤 이동
+
                 setTimeout(() => {
-                    location.href = '/interviews/1';
-                }, 500); 
+                    const sessionId = getSessionIdFromPath();
+                    if (sessionId) {
+                        location.href = `/interviews/${sessionId}`;
+                    } else {
+                        location.href = "/";
+                    }
+                }, 500);
             } else {
                 updateUI(progress);
             }
-        }, 200); // 0.2초마다 상태 업데이트
+        }, 200);
     }
 
-    /**
-     * [UI Update] 진행률 표시 업데이트
-     */
     function updateUI(value) {
-        $progressBar.css('width', value + '%');
-        $percentageText.text(value + '%');
+        $progressBar.css("width", value + "%");
+        $percentageText.text(value + "%");
     }
 
-    /**
-     * [Error Handling] 에러 발생 시나리오 처리
-     */
     function handleError() {
         if (retryCount < 1) {
-            console.log("Error detected. Retrying...");
-            retryCount++;
+            retryCount += 1;
             progress = 0;
             simulateGeneration();
         } else {
-            location.href = '/';
+            location.href = "/";
         }
     }
 
-    // 시뮬레이션 실행
     simulateGeneration();
 });

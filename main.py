@@ -7,6 +7,20 @@ from fastapi.responses import HTMLResponse
 
 from core.database import engine
 from models.base import Base
+import models.answer_analysis
+import models.audio_recording
+import models.interview_session
+import models.llm_run
+import models.question
+import models.question_filter_result
+import models.question_set
+import models.resume
+import models.resume_classification
+import models.resume_keyword
+import models.select_question
+import models.speech_score_summary
+import models.transcript
+import models.user
 from web.router import web_router
 
 # 앱 시작 시 테이블 생성

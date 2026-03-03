@@ -53,5 +53,11 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    window.INTERVIEW_CONTEXT = {
+        sessionId: {{ session_id }},
+        selId: {{ question_id }}
+    };
+</script>
 <script src="/static/js/interview/question_detail.js"></script>
 {% endblock %}

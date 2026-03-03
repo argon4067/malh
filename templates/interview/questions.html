@@ -15,45 +15,28 @@
         </div>
 
         <div class="question-list">
-            <div class="question-card" onclick="goToDetail(1)">
-                <div class="q-content">
-                    <div class="q-number">1</div>
-                    <div class="q-text">자기소개를 간단하게 해주세요.</div>
+            {% if question_items %}
+                {% for item in question_items %}
+                <div class="question-card" onclick="goToDetail({{ item.sel_id }})">
+                    <div class="q-content">
+                        <div class="q-number">{{ item.sel_order_no }}</div>
+                        <div class="q-text">{{ item.question_text }}</div>
+                    </div>
+                    {% if item.is_recorded %}
+                    <div class="q-status done">✓ 녹음 완료</div>
+                    {% else %}
+                    <div class="q-status">대기 중 &gt;</div>
+                    {% endif %}
                 </div>
-                <div class="q-status done">✔ 녹음 완료</div>
-            </div>
-
-            <div class="question-card" onclick="goToDetail(2)">
-                <div class="q-content">
-                    <div class="q-number">2</div>
-                    <div class="q-text">우리 회사에 지원하게 된 동기는 무엇인가요?</div>
+                {% endfor %}
+            {% else %}
+                <div class="question-card">
+                    <div class="q-content">
+                        <div class="q-number">-</div>
+                        <div class="q-text">표시할 질문이 없습니다.</div>
+                    </div>
                 </div>
-                <div class="q-status">대기 중 &gt;</div>
-            </div>
-
-            <div class="question-card" onclick="goToDetail(3)">
-                <div class="q-content">
-                    <div class="q-number">3</div>
-                    <div class="q-text">직무와 관련된 본인의 강점은 무엇인가요?</div>
-                </div>
-                <div class="q-status">대기 중 &gt;</div>
-            </div>
-
-            <div class="question-card" onclick="goToDetail(4)">
-                <div class="q-content">
-                    <div class="q-number">4</div>
-                    <div class="q-text">가장 힘들었던 프로젝트 경험과 해결 방법을 말해주세요.</div>
-                </div>
-                <div class="q-status">대기 중 &gt;</div>
-            </div>
-
-            <div class="question-card" onclick="goToDetail(5)">
-                <div class="q-content">
-                    <div class="q-number">5</div>
-                    <div class="q-text">입사 후 이루고 싶은 목표가 있나요?</div>
-                </div>
-                <div class="q-status">대기 중 &gt;</div>
-            </div>
+            {% endif %}
         </div>
 
         <button class="submit-btn" onclick="submitAnswers()">제출하기</button>
@@ -62,5 +45,10 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    window.INTERVIEW_CONTEXT = {
+        sessionId: {{ session_id }}
+    };
+</script>
 <script src="/static/js/interview/question.js"></script>
 {% endblock %}

@@ -1,60 +1,147 @@
-/**
- * question_detail.js - 질문 상세 페이지 녹음 로직 (jQuery version)
- */
-
-let timerInterval;
+let timerInterval = null;
 let seconds = 0;
+let mediaRecorder = null;
+let mediaStream = null;
+let recordedChunks = [];
+let isRecording = false;
 
-/**
- * [Logic 1] 녹음 시작 프로세스
- */
-function startRecordingFlow() {
-    // 마이크 권한 확인 시뮬레이션
-    if (confirm("마이크 사용 권한을 허용하시겠습니까?")) {
-        // 1. 대기 화면 숨김
-        $('#mode-standby').removeClass('active');
-        
-        // 2. 녹음 화면 표시
-        $('#mode-recording').addClass('active');
+const interviewContext = window.INTERVIEW_CONTEXT || {};
+const sessionId = Number(interviewContext.sessionId || 0);
+const selId = Number(interviewContext.selId || 0);
 
-        // 3. 타이머 시작
-        startTimer();
-    } else {
-        alert("마이크 권한이 필요합니다.");
-    }
-}
-
-/**
- * [Logic 2] 타이머 기능
- */
 function startTimer() {
-    const $timerElement = $('#timer');
-    seconds = 0; // 초기화
+    const $timerElement = $("#timer");
+    seconds = 0;
     $timerElement.text("00:00");
-    
+
     timerInterval = setInterval(() => {
-        seconds++;
+        seconds += 1;
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
-        const timeString = 
-            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        $timerElement.text(timeString);
+        $timerElement.text(
+            `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`,
+        );
     }, 1000);
 }
 
-/**
- * [Logic 3] 녹음 완료 및 페이지 이동
- */
-function finishRecording() {
-    clearInterval(timerInterval); // 타이머 정지
-    
-    // 저장 알림
-    alert("답변이 저장되었습니다. 질문 목록으로 이동합니다.");
-    
-    // 질문 목록 페이지로 이동
-    $(location).attr('href', '/interviews/1');
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
 }
 
-$(function() {
-    console.log("질문 상세 녹음 페이지가 로드되었습니다.");
+function pickSupportedMimeType() {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+    for (const mimeType of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(mimeType)) {
+            return mimeType;
+        }
+    }
+    return "";
+}
+
+async function uploadRecordedAudio(blob) {
+    const ext = blob.type.includes("mp4") ? "m4a" : "webm";
+    const fileName = `answer.${ext}`;
+    const file = new File([blob], fileName, { type: blob.type || "audio/webm" });
+
+    const formData = new FormData();
+    formData.append("audio_file", file);
+    formData.append("duration_sec", String(seconds));
+
+    const response = await fetch(
+        `/api/interviews/${sessionId}/questions/${selId}/recordings`,
+        {
+            method: "POST",
+            body: formData,
+        },
+    );
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const message = data.detail || "Recording upload failed.";
+        throw new Error(message);
+    }
+
+    return response.json();
+}
+
+function cleanupStream() {
+    if (mediaStream) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+    }
+}
+
+async function startRecordingFlow() {
+    if (isRecording) {
+        return;
+    }
+    if (!sessionId || !selId) {
+        alert("Interview context is invalid.");
+        return;
+    }
+    if (!window.MediaRecorder) {
+        alert("This browser does not support audio recording.");
+        return;
+    }
+
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunks = [];
+
+        const mimeType = pickSupportedMimeType();
+        mediaRecorder = mimeType
+            ? new MediaRecorder(mediaStream, { mimeType })
+            : new MediaRecorder(mediaStream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        $("#mode-standby").removeClass("active");
+        $("#mode-recording").addClass("active");
+        startTimer();
+    } catch (_error) {
+        cleanupStream();
+        alert("Microphone permission is required.");
+    }
+}
+
+function finishRecording() {
+    if (!isRecording || !mediaRecorder) {
+        return;
+    }
+
+    isRecording = false;
+    stopTimer();
+
+    mediaRecorder.onstop = async () => {
+        try {
+            const type = mediaRecorder.mimeType || "audio/webm";
+            const blob = new Blob(recordedChunks, { type });
+            await uploadRecordedAudio(blob);
+            alert("Recording saved.");
+            window.location.href = `/interviews/${sessionId}`;
+        } catch (error) {
+            alert(error.message || "Failed to save recording.");
+            $("#mode-recording").removeClass("active");
+            $("#mode-standby").addClass("active");
+        } finally {
+            cleanupStream();
+            mediaRecorder = null;
+            recordedChunks = [];
+        }
+    };
+
+    mediaRecorder.stop();
+}
+
+$(function () {
+    console.log("question_detail loaded");
 });

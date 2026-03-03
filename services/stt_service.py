@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from core.config import settings
+from models.audio_recording import AudioRecording
+from sqlalchemy.orm import Session
+
+
+MIME_TO_EXT = {
+    "audio/webm": "webm",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/ogg": "ogg",
+}
+
+
+def resolve_recording_extension(filename: str | None, content_type: str | None) -> str:
+    if content_type and content_type in MIME_TO_EXT:
+        return MIME_TO_EXT[content_type]
+    if filename and "." in filename:
+        return filename.rsplit(".", 1)[-1].lower()
+    return "webm"
+
+
+def build_recording_paths(inter_id: int, sel_id: int, ext: str) -> tuple[Path, str]:
+    # Rule: storage/audio/interviews/{inter_id}/{sel_id}/answer.{ext}
+    relative = f"audio/interviews/{inter_id}/{sel_id}/answer.{ext}"
+    absolute = Path(settings.STORAGE_DIR) / relative
+    return absolute, relative
+
+
+def save_recording_and_upsert(
+    db: Session,
+    inter_id: int,
+    sel_id: int,
+    filename: str | None,
+    content_type: str | None,
+    payload: bytes,
+    duration_sec: int | None = None,
+) -> AudioRecording:
+    ext = resolve_recording_extension(filename, content_type)
+    absolute_path, relative_path = build_recording_paths(inter_id, sel_id, ext)
+
+    absolute_path.parent.mkdir(parents=True, exist_ok=True)
+    absolute_path.write_bytes(payload)
+
+    size_bytes = len(payload)
+    stored_path = relative_path.replace("\\", "/")
+
+    record = db.query(AudioRecording).filter(AudioRecording.sel_id == sel_id).first()
+    if record is None:
+        record = AudioRecording(
+            inter_id=inter_id,
+            sel_id=sel_id,
+            file_path=stored_path,
+            mime_type=content_type,
+            size_bytes=size_bytes,
+            duration_sec=duration_sec if duration_sec is not None else 0,
+            upload_status="UPLOADED",
+        )
+        db.add(record)
+    else:
+        record.inter_id = inter_id
+        record.file_path = stored_path
+        record.mime_type = content_type
+        record.size_bytes = size_bytes
+        if duration_sec is not None:
+            record.duration_sec = duration_sec
+        record.upload_status = "UPLOADED"
+
+    db.commit()
+    db.refresh(record)
+    return record

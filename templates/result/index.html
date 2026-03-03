@@ -15,77 +15,32 @@
         </div>
 
         <div class="result-list">
-            
-            <div class="result-card">
-                <div class="card-info">
-                    <span class="question-badge">Q1</span>
-                    <div class="question-title">지원자가 최근 수행한 프로젝트 중 가장 어려웠던 문제 상황과 해결 과정은?</div>
-                    <div class="answer-meta">
-                        <span class="time-icon">⏱️</span> 답변 길이: <strong>50초</strong>
+            {% if result_items %}
+                {% for item in result_items %}
+                <div class="result-card">
+                    <div class="card-info">
+                        <span class="question-badge">Q{{ item.sel_order_no }}</span>
+                        <div class="question-title">{{ item.question_text }}</div>
+                        <div class="answer-meta">
+                            <span class="time-icon">⏱</span>
+                            답변 길이: <strong>{{ item.duration_sec }}초</strong>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
+                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
                     </div>
                 </div>
-                <div class="action-buttons">
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
-                </div>
-            </div>
-
-            <div class="result-card">
-                <div class="card-info">
-                    <span class="question-badge">Q2</span>
-                    <div class="question-title">우리 회사에 지원하게 된 구체적인 동기는 무엇인가요?</div>
-                    <div class="answer-meta">
-                        <span class="time-icon">⏱️</span> 답변 길이: <strong>35초</strong>
+                {% endfor %}
+            {% else %}
+                <div class="result-card">
+                    <div class="card-info">
+                        <span class="question-badge">-</span>
+                        <div class="question-title">표시할 분석 결과가 없습니다.</div>
+                        <div class="answer-meta">면접 답변을 먼저 제출해 주세요.</div>
                     </div>
                 </div>
-                <div class="action-buttons">
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
-                </div>
-            </div>
-
-            <div class="result-card">
-                <div class="card-info">
-                    <span class="question-badge">Q3</span>
-                    <div class="question-title">직무와 관련된 본인의 핵심 강점은 무엇이라고 생각합니까?</div>
-                    <div class="answer-meta">
-                        <span class="time-icon">⏱️</span> 답변 길이: <strong>1분 4초</strong>
-                    </div>
-                </div>
-                <div class="action-buttons">
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
-                </div>
-            </div>
-
-            <div class="result-card">
-                <div class="card-info">
-                    <span class="question-badge">Q4</span>
-                    <div class="question-title">팀 내 갈등이 발생했을 때 어떻게 대처하시겠습니까?</div>
-                    <div class="answer-meta">
-                        <span class="time-icon">⏱️</span> 답변 길이: <strong>1분 10초</strong>
-                    </div>
-                </div>
-                <div class="action-buttons">
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
-                </div>
-            </div>
-
-            <div class="result-card">
-                <div class="card-info">
-                    <span class="question-badge">Q5</span>
-                    <div class="question-title">입사 후 3년 내에 이루고 싶은 목표는 무엇인가요?</div>
-                    <div class="answer-meta">
-                        <span class="time-icon">⏱️</span> 답변 길이: <strong>47초</strong>
-                    </div>
-                </div>
-                <div class="action-buttons">
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/text" class="btn-text">📄 텍스트 보기</a>
-                    <a href="/interviews/{{ session_id }}/results/{{ sel_id }}/analysis" class="btn-analysis">📊 분석 결과 보기</a>
-                </div>
-            </div>
-
+            {% endif %}
         </div>
     </div>
 </div>
