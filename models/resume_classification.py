@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, JSON
 from sqlalchemy.sql import text
@@ -11,7 +9,7 @@ class ResumeClassification(Base):
     __tablename__ = "resume_classification"
 
     class_id = Column(Integer, primary_key=True, autoincrement=True)
-    resume_id = Column(Integer, ForeignKey("resume.resume_id"), nullable=False)
+    resume_id = Column(Integer, ForeignKey("resume.resume_id"), nullable=False, unique=True)
     llm_id = Column(Integer, ForeignKey("llm_run.llm_id"), nullable=False)
     class_job_family = Column(
         Enum(

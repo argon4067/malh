@@ -8,7 +8,7 @@ class AnswerAnalysis(Base):
     __tablename__ = "answer_analysis"
 
     anal_id = Column(Integer, primary_key=True, autoincrement=True)
-    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False)
+    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False, unique=True)
     anal_overall_score = Column(Integer, nullable=False, comment="총점")
     anal_relevance_score = Column(Integer, nullable=False, comment="질문-답변-맥락 적합")
     anal_coverage_score = Column(Integer, nullable=False, comment="질문이 요구하는 요소 적합")

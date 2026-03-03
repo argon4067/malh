@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, DateTime, Enum, ForeignKey
 from sqlalchemy.sql import text
@@ -11,7 +9,7 @@ class InterviewSession(Base):
     __tablename__ = "interview_session"
 
     inter_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("User.user_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("user.user_id"), nullable=False)
     resume_id = Column(Integer, ForeignKey("resume.resume_id"), nullable=False)
     set_id = Column(Integer, ForeignKey("question_set.set_id"), nullable=False)
     inter_status = Column(Enum("IN_PROGRESS", "DONE"), nullable=False)

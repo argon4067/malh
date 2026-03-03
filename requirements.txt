@@ -6,3 +6,4 @@ sqlalchemy
 pydantic-settings
 aiosqlite
 python-dotenv
+pymysql

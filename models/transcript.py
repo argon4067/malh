@@ -13,7 +13,8 @@ class Transcript(Base):
         autoincrement=True,
         comment="STT 처리로 생성된 전사 텍스트 레코드를 유일하게 식별하는 기본키",
     )
-    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False)
+    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False, unique=True)
+
     t_transcript_text = Column(
         Text,
         nullable=False,

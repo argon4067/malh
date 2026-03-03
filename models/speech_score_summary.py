@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, ForeignKey, DECIMAL
 
@@ -15,7 +13,8 @@ class SpeechScoreSummary(Base):
         autoincrement=True,
         comment="질문 단위 음성 평가 점수 요약 레코드를 유일하게 식별하는 기본키",
     )
-    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False)
+    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False, unique=True)
+    
     sss_fluency_score = Column(
         DECIMAL(5, 2),
         nullable=False,
