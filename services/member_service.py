@@ -1,17 +1,16 @@
 import re
-from fastapi import FastAPI, Request, Form
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from starlette import status
 
-app = FastAPI()
+# 🚀 FastAPI() 대신 APIRouter()를 사용합니다.
+router = APIRouter()
 
 # -----------------------
-# static & template 설정
+# template 설정 (static 설정은 main.py로 이동)
 # -----------------------
-app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # -----------------------
@@ -38,7 +37,8 @@ def hash_password(password: str):
 # =====================================================
 # 회원가입 페이지 (GET)
 # =====================================================
-@app.get("/auth/signup")
+# 🚀 @app.get 대신 @router.get을 사용합니다.
+@router.get("/auth/signup")
 def signup_page(request: Request):
     return templates.TemplateResponse(
         "auth/signup.html",
@@ -49,7 +49,8 @@ def signup_page(request: Request):
 # =====================================================
 # 회원가입 처리 (POST)
 # =====================================================
-@app.post("/auth/signup")
+# 🚀 @app.post 대신 @router.post를 사용합니다.
+@router.post("/auth/signup")
 def signup(
     request: Request,
     userId: str = Form(...),
@@ -100,7 +101,7 @@ def signup(
 # =====================================================
 # 로그인 페이지 (GET)
 # =====================================================
-@app.get("/auth/login")
+@router.get("/auth/login")
 def login_page(request: Request):
     return templates.TemplateResponse(
         "auth/login.html",
