@@ -2,27 +2,38 @@
 
 {% block title %}이력서 분석 중 - 말해뭐해{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="/static/css/resume/resume_wait.css">
-{% endblock %}
-
 {% block content %}
-<div class="resume-wait-wrapper">
-    <div class="wait-container">
-        <div class="analyzing-icon">📄🔍</div>
-        
-        <h2 class="status-text">이력서를 분석 중입니다...</h2>
-        <p class="sub-text">AI가 직무 적합성과 예상 질문을 추출하고 있습니다.</p>
-
-        <div class="progress-wrapper">
-            <div class="progress-bar" id="progressBar"></div>
+<div class="resume-container-wrapper">
+    <div class="container">
+        <div class="upload-container" style="text-align:center; padding:80px 20px;">
+            <h2>이력서 분석 중입니다...</h2>
+            <p>잠시만 기다려 주세요.</p>
         </div>
-        
-        <div class="percentage" id="percentageText">0%</div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/resume/resume_wait.js"></script>
+<script>
+    async function runAnalysis() {
+        const formData = new FormData();
+        formData.append("model", "{{ model }}");
+
+        const response = await fetch("/resumes/{{ resume_id }}/analyze", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            alert(result.detail || "분석 실패");
+            return;
+        }
+
+        location.href = "/resumes";
+    }
+
+    runAnalysis();
+</script>
 {% endblock %}

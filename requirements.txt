@@ -8,3 +8,5 @@ aiosqlite
 python-dotenv
 pymysql
 bcrypt==4.0.1
+python-docx
+pymupdf

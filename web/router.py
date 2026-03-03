@@ -5,6 +5,7 @@ from services.resume_service import (
     DEFAULT_MODEL,
     create_resume_record,
     analyze_saved_resume,
+    get_resume_analysis_result,
 )
 
 from fastapi.templating import Jinja2Templates
@@ -23,8 +24,6 @@ from services.stt_service import (
 )
 
 from models.resume import Resume
-from models.resume_classification import ResumeClassification
-from models.resume_keyword import ResumeKeyword
 
 # templates 폴더 경로 설정 (malh/templates)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -162,22 +161,18 @@ async def resume_feedback(
         },
     )
 
-@web_router.post("/resumes/upload-analyze")
-async def upload_and_analyze_resume(
-    user_id: int = Form(...),
+@web_router.post("/resumes/{resume_id}/analyze")
+async def analyze_resume(
+    resume_id: int,
     model: str = Form(DEFAULT_MODEL),
-    file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    data = await file.read()
-
-    return process_resume_upload_and_analyze(
+    analyze_saved_resume(
         db=db,
-        user_id=user_id,
-        original_filename=file.filename or "resume.pdf",
-        data=data,
+        resume_id=resume_id,
         model=model,
     )
+    return {"ok": True, "resume_id": resume_id}
 
 # Interview
 @web_router.get("/interviews/wait")

@@ -186,6 +186,28 @@ def get_resume_by_id(db: Session, resume_id: int) -> Resume:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
     return resume
 
+def get_resume_analysis_result(db: Session, resume_id: int):
+    resume = get_resume_by_id(db, resume_id)
+
+    classification = (
+        db.query(ResumeClassification)
+        .filter(ResumeClassification.resume_id == resume_id)
+        .first()
+    )
+
+    keywords = (
+        db.query(ResumeKeyword)
+        .filter(ResumeKeyword.resume_id == resume_id)
+        .order_by(ResumeKeyword.keyword_id.asc())
+        .all()
+    )
+
+    return {
+        "resume": resume,
+        "classification": classification,
+        "keywords": keywords,
+    }
+
 
 def classify_resume_llm(
     resume_text: str,
