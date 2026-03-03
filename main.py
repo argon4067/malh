@@ -23,6 +23,8 @@ import models.transcript
 import models.user
 from web.router import web_router
 
+from services.member_service import router as member_router
+
 # 앱 시작 시 테이블 생성
 Base.metadata.create_all(bind=engine)
 
@@ -38,6 +40,9 @@ def create_app() -> FastAPI:
 
     # SSR 라우터
     app.include_router(web_router)
+
+    # 회원가입/로그인 라우터
+    app.include_router(member_router)
 
     @app.get("/health", response_class=HTMLResponse)
     def health():
