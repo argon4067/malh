@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 from core.config import settings
-from models.base import Base  # models/base.py에 Base가 있다는 전제
 
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
-    # sqlite는 멀티스레드 관련 옵션 필요
     connect_args = {"check_same_thread": False}
 
 engine = create_engine(
@@ -17,7 +15,13 @@ engine = create_engine(
     connect_args=connect_args,
 )
 
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+Base = declarative_base()
 
 
 def get_db():
