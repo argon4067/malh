@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import settings
 from core.database import engine
 from models.base import Base
 import models.answer_analysis
@@ -21,6 +22,7 @@ import models.resume_keyword
 import models.select_question
 import models.speech_score_summary
 import models.transcript
+import models.transcript_refine
 import models.user
 from web.router import web_router
 
@@ -40,6 +42,7 @@ def create_app() -> FastAPI:
     # ✅ 어디서 실행해도 static 경로가 깨지지 않게 절대경로로 마운트
     static_dir = BASE_DIR / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage")
 
     # SSR 라우터
     app.include_router(web_router)

@@ -15,6 +15,7 @@ from models.select_question import SelectQuestion
 from models.transcript import Transcript
 from models.answer_analysis import AnswerAnalysis
 from models.speech_score_summary import SpeechScoreSummary
+from models.transcript_refine import TranscriptRefine
 
 
 def main():

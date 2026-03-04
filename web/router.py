@@ -22,6 +22,7 @@ from models.resume import Resume
 from models.select_question import SelectQuestion
 from models.speech_score_summary import SpeechScoreSummary
 from models.transcript import Transcript
+from models.transcript_refine import TranscriptRefine
 from fastapi.responses import RedirectResponse
 
 from services.resume_service import (
@@ -38,6 +39,10 @@ from services.stt_service import (
     resolve_recording_extension,
     run_stt_and_update,
     save_recording_and_upsert,
+)
+from services.transcript_refine_service import (
+    refine_transcript_with_guardrails,
+    upsert_refine_result,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -485,11 +490,15 @@ async def result_transcript(
             SelectQuestion.sel_order_no.label("sel_order_no"),
             Question.qust_question_text.label("question_text"),
             AudioRecording.duration_sec.label("duration_sec"),
+            AudioRecording.file_path.label("file_path"),
             Transcript.t_transcript_text.label("transcript_text"),
+            TranscriptRefine.refined_text.label("refined_text"),
+            TranscriptRefine.status.label("refine_status"),
         )
         .join(Question, Question.qust_id == SelectQuestion.qust_id)
         .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
         .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
+        .outerjoin(TranscriptRefine, TranscriptRefine.sel_id == SelectQuestion.sel_id)
         .filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id)
         .first()
     )
@@ -498,6 +507,11 @@ async def result_transcript(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Transcript in session not found.",
         )
+
+    effective_text = row.transcript_text or "Transcript is not generated yet."
+    if row.refine_status == "APPLIED" and (row.refined_text or "").strip():
+        effective_text = row.refined_text
+    audio_url = f"/storage/{row.file_path}" if (row.file_path or "").strip() else None
 
     return templates.TemplateResponse(
         "result/transcript.html",
@@ -509,7 +523,8 @@ async def result_transcript(
                 "sel_order_no": row.sel_order_no,
                 "question_text": row.question_text,
                 "duration_sec": int(row.duration_sec or 0),
-                "transcript_text": row.transcript_text or "Transcript is not generated yet.",
+                "transcript_text": effective_text,
+                "audio_url": audio_url,
             },
         },
     )
@@ -769,4 +784,115 @@ async def build_speech_score(
         "structure_score": float(summary.sss_structure_score),
         "length_score": float(summary.sss_length_score),
         "metrics": score_payload.metrics,
+    }
+@web_router.post(
+    "/api/interviews/{inter_id}/questions/{sel_id}/transcript/refine",
+    status_code=status.HTTP_200_OK,
+)
+async def refine_transcript(
+    inter_id: int,
+    sel_id: int,
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            Transcript.t_transcript_text.label("transcript_text"),
+        )
+        .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == inter_id, SelectQuestion.sel_id == sel_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Question in session not found.",
+        )
+    if not (row.transcript_text or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Transcript is missing. Run STT first.",
+        )
+
+    try:
+        result = refine_transcript_with_guardrails(row.transcript_text)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Transcript refine failed: {exc}",
+        ) from exc
+
+    saved = upsert_refine_result(db=db, sel_id=sel_id, result=result)
+    return {
+        "message": "Transcript refine completed.",
+        "inter_id": inter_id,
+        "sel_id": sel_id,
+        "status": saved.status,
+        "applied": saved.status == "APPLIED",
+        "confidence": saved.refine_confidence,
+        "changed_ratio": saved.changed_ratio,
+        "reject_reason": saved.reject_reason,
+        "raw_text": saved.raw_text,
+        "refined_text": saved.refined_text,
+    }
+
+
+@web_router.get(
+    "/api/interviews/{inter_id}/questions/{sel_id}/transcript",
+    status_code=status.HTTP_200_OK,
+)
+async def get_transcript_payload(
+    inter_id: int,
+    sel_id: int,
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            Transcript.t_transcript_text.label("raw_text"),
+            TranscriptRefine.refined_text.label("refined_text"),
+            TranscriptRefine.status.label("refine_status"),
+            TranscriptRefine.refine_confidence.label("refine_confidence"),
+            TranscriptRefine.changed_ratio.label("changed_ratio"),
+            TranscriptRefine.reject_reason.label("reject_reason"),
+            TranscriptRefine.llm_model.label("llm_model"),
+        )
+        .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
+        .outerjoin(TranscriptRefine, TranscriptRefine.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == inter_id, SelectQuestion.sel_id == sel_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Question in session not found.",
+        )
+
+    raw_text = row.raw_text or ""
+    effective_text = raw_text
+    source = "raw"
+    if row.refine_status == "APPLIED" and (row.refined_text or "").strip():
+        effective_text = row.refined_text
+        source = "refined"
+
+    return {
+        "schema_version": "v1",
+        "inter_id": inter_id,
+        "sel_id": sel_id,
+        "source": source,
+        "effective_text": effective_text,
+        "raw_text": raw_text,
+        "refined_text": row.refined_text,
+        "stt_meta": {
+            "refine_status": row.refine_status,
+            "refine_confidence": row.refine_confidence,
+            "changed_ratio": row.changed_ratio,
+            "reject_reason": row.reject_reason,
+            "llm_model": row.llm_model,
+        },
     }
