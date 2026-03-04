@@ -9,16 +9,16 @@ from fastapi import HTTPException
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
+from models.llm_run import LlmRun
 from models.resume import Resume
 from models.resume_classification import ResumeClassification
 from models.resume_keyword import ResumeKeyword
-from models.llm_run import LlmRun
 from schemas.resume_llm import (
     ResumeClassificationResult,
     ResumeKeywordItem,
     ResumeKeywordResult,
 )
-from services.prompt.resume.classify_prompt import (
+from services.prompt.resume.classify_prompt_v2 import (
     PROMPT_VERSION_CLASSIFY,
     CLASSIFY_SYSTEM_PROMPT,
     build_classify_user_prompt,
@@ -32,6 +32,13 @@ from services.prompt.resume.keyword_prompt import (
 load_dotenv()
 
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+
+class ResumeFileError(Exception):
+    def __init__(self, detail: str, status_code: int = 400):
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
 
 
 def normalize_text(text: str) -> str:
@@ -65,8 +72,43 @@ def extract_pdf_text(data: bytes) -> str:
     except Exception as e:
         raise RuntimeError("pymupdf가 필요합니다.") from e
 
-    doc = fitz.open(stream=data, filetype="pdf")
-    return "\n".join(page.get_text("text") for page in doc)
+    doc = None
+    try:
+        doc = fitz.open(stream=data, filetype="pdf")
+
+        # 실제 비밀번호 입력이 필요한 PDF만 차단
+        if getattr(doc, "needs_pass", False):
+            raise ResumeFileError("암호가 설정된 PDF는 업로드할 수 없습니다.", 400)
+
+        # 암호화 플래그만 있고 읽기 가능한 경우가 있어 추가 확인
+        if getattr(doc, "is_encrypted", False):
+            auth_result = doc.authenticate("")
+            if auth_result == 0 and getattr(doc, "needs_pass", False):
+                raise ResumeFileError("암호가 설정된 PDF는 업로드할 수 없습니다.", 400)
+
+        parts: List[str] = []
+        for page in doc:
+            page_text = page.get_text("text") or ""
+            if page_text.strip():
+                parts.append(page_text)
+
+        text = "\n".join(parts).strip()
+
+        if not text:
+            raise ResumeFileError(
+                "PDF에서 텍스트를 추출하지 못했습니다. 스캔본, 이미지형 PDF, 또는 손상된 PDF일 수 있습니다.",
+                400,
+            )
+
+        return text
+
+    except ResumeFileError:
+        raise
+    except Exception as e:
+        raise ResumeFileError(f"PDF 파싱 실패: {e}", 400) from e
+    finally:
+        if doc is not None:
+            doc.close()
 
 
 def extract_docx_text(data: bytes) -> str:
@@ -75,22 +117,43 @@ def extract_docx_text(data: bytes) -> str:
     except Exception as e:
         raise RuntimeError("python-docx가 필요합니다.") from e
 
-    doc = Document(io.BytesIO(data))
-    parts: List[str] = []
+    try:
+        doc = Document(io.BytesIO(data))
+    except Exception as e:
+        raise ResumeFileError(
+            "DOCX를 열 수 없습니다. 암호로 보호되었거나 손상된 파일일 수 있습니다.",
+            400,
+        ) from e
 
-    for p in doc.paragraphs:
-        t = (p.text or "").strip()
-        if t:
-            parts.append(t)
+    try:
+        parts: List[str] = []
 
-    for table in doc.tables:
-        for row in table.rows:
-            cells = [(c.text or "").strip() for c in row.cells]
-            cells = [c for c in cells if c]
-            if cells:
-                parts.append(" | ".join(cells))
+        for p in doc.paragraphs:
+            t = (p.text or "").strip()
+            if t:
+                parts.append(t)
 
-    return "\n".join(parts)
+        for table in doc.tables:
+            for row in table.rows:
+                cells = [(c.text or "").strip() for c in row.cells]
+                cells = [c for c in cells if c]
+                if cells:
+                    parts.append(" | ".join(cells))
+
+        text = "\n".join(parts).strip()
+
+        if not text:
+            raise ResumeFileError(
+                "DOCX에서 텍스트를 추출하지 못했습니다. 비어 있거나 읽을 수 없는 문서입니다.",
+                400,
+            )
+
+        return text
+
+    except ResumeFileError:
+        raise
+    except Exception as e:
+        raise ResumeFileError(f"DOCX 파싱 실패: {e}", 400) from e
 
 
 def extract_text_from_upload(filename: str, data: bytes) -> str:
@@ -150,6 +213,7 @@ def save_llm_run_failed(
     db.add(row)
     db.flush()
 
+
 def create_resume_record(
     db: Session,
     user_id: int,
@@ -157,7 +221,13 @@ def create_resume_record(
     data: bytes,
 ) -> Resume:
     file_type = detect_file_type(original_filename)
-    extracted_text = normalize_text(extract_text_from_upload(original_filename, data))
+
+    try:
+        extracted_text = normalize_text(
+            extract_text_from_upload(original_filename, data)
+        )
+    except ResumeFileError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     if not extracted_text:
         raise HTTPException(status_code=400, detail="텍스트를 추출하지 못했습니다.")
@@ -185,6 +255,7 @@ def get_resume_by_id(db: Session, resume_id: int) -> Resume:
     if not resume:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
     return resume
+
 
 def get_resume_analysis_result(db: Session, resume_id: int):
     resume = get_resume_by_id(db, resume_id)
@@ -280,6 +351,7 @@ def dedupe_keywords(items: List[ResumeKeywordItem]) -> List[ResumeKeywordItem]:
 
     return result
 
+
 def analyze_saved_resume(
     db: Session,
     resume_id: int,
@@ -301,82 +373,107 @@ def analyze_saved_resume(
     if classification_exists and keyword_exists:
         return
 
-    try:
-        classification_result = classify_resume_llm(
-            resume_text=resume.resume_extracted_text,
-            model=model,
-        )
+    classification_row = classification_exists
 
-        classify_run = save_llm_run_success(
-            db=db,
-            stage="RESUME_CLASSIFY",
-            model=model,
-            prompt_version=PROMPT_VERSION_CLASSIFY,
-        )
-
-        classification_row = ResumeClassification(
-            resume_id=resume.resume_id,
-            llm_id=classify_run.llm_id,
-            class_job_family=classification_result.job_family,
-            class_job_role=classification_result.job_role,
-            class_evidence=[x.model_dump() for x in classification_result.evidence],
-        )
-        db.add(classification_row)
-        db.commit()
-        db.refresh(classification_row)
-
-    except Exception as e:
-        db.rollback()
-        save_llm_run_failed(
-            db=db,
-            stage="RESUME_CLASSIFY",
-            model=model,
-            prompt_version=PROMPT_VERSION_CLASSIFY,
-            error_code=type(e).__name__,
-            error_message=str(e),
-        )
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"이력서 분류 실패: {e}") from e
-
-    try:
-        keyword_result = analyze_resume_keywords_llm(
-            resume_text=resume.resume_extracted_text,
-            job_family=classification_row.class_job_family,
-            job_role=classification_row.class_job_role,
-            model=model,
-        )
-
-        deduped = dedupe_keywords(keyword_result.keywords)
-
-        keyword_run = save_llm_run_success(
-            db=db,
-            stage="RESUME_KEYWORD",
-            model=model,
-            prompt_version=PROMPT_VERSION_KEYWORD,
-        )
-
-        for item in deduped:
-            db.add(
-                ResumeKeyword(
-                    resume_id=resume.resume_id,
-                    llm_id=keyword_run.llm_id,
-                    keyword_keyword=item.keyword,
-                    keyword_type=item.keyword_type,
-                    keyword_evidence=[x.model_dump() for x in item.evidence],
-                )
+    if not classification_exists:
+        try:
+            classification_result = classify_resume_llm(
+                resume_text=resume.resume_extracted_text,
+                model=model,
             )
 
+            classify_run = save_llm_run_success(
+                db=db,
+                stage="RESUME_CLASSIFY_V2",
+                model=model,
+                prompt_version=PROMPT_VERSION_CLASSIFY,
+            )
+
+            classification_row = ResumeClassification(
+                resume_id=resume.resume_id,
+                llm_id=classify_run.llm_id,
+                class_job_family=classification_result.job_family,
+                class_job_role=classification_result.job_role,
+                class_evidence=[x.model_dump() for x in classification_result.evidence],
+            )
+            db.add(classification_row)
+            db.commit()
+            db.refresh(classification_row)
+
+        except Exception as e:
+            db.rollback()
+            save_llm_run_failed(
+                db=db,
+                stage="RESUME_CLASSIFY_V2",
+                model=model,
+                prompt_version=PROMPT_VERSION_CLASSIFY,
+                error_code=type(e).__name__,
+                error_message=str(e),
+            )
+            db.commit()
+            raise HTTPException(status_code=500, detail=f"이력서 분류 실패: {e}") from e
+
+    if not keyword_exists:
+        try:
+            keyword_result = analyze_resume_keywords_llm(
+                resume_text=resume.resume_extracted_text,
+                job_family=classification_row.class_job_family,
+                job_role=classification_row.class_job_role,
+                model=model,
+            )
+
+            deduped = dedupe_keywords(keyword_result.keywords)
+
+            keyword_run = save_llm_run_success(
+                db=db,
+                stage="RESUME_KEYWORD_V1",
+                model=model,
+                prompt_version=PROMPT_VERSION_KEYWORD,
+            )
+
+            for item in deduped:
+                db.add(
+                    ResumeKeyword(
+                        resume_id=resume.resume_id,
+                        llm_id=keyword_run.llm_id,
+                        keyword_keyword=item.keyword,
+                        keyword_type=item.keyword_type,
+                        keyword_evidence=[x.model_dump() for x in item.evidence],
+                    )
+                )
+
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            save_llm_run_failed(
+                db=db,
+                stage="RESUME_KEYWORD_V1",
+                model=model,
+                prompt_version=PROMPT_VERSION_KEYWORD,
+                error_code=type(e).__name__,
+                error_message=str(e),
+            )
+            db.commit()
+            raise HTTPException(status_code=500, detail=f"이력서 키워드 분석 실패: {e}") from e
+        
+def delete_resume(db: Session, resume_id: int) -> None:
+    resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
+
+    try:
+        db.query(ResumeClassification).filter(
+            ResumeClassification.resume_id == resume_id
+        ).delete(synchronize_session=False)
+
+        db.query(ResumeKeyword).filter(
+            ResumeKeyword.resume_id == resume_id
+        ).delete(synchronize_session=False)
+
+        db.delete(resume)
         db.commit()
 
     except Exception as e:
         db.rollback()
-        save_llm_run_failed(
-            db=db,
-            stage="RESUME_KEYWORD",
-            model=model,
-            prompt_version=PROMPT_VERSION_KEYWORD,
-            error_code=type(e).__name__,
-            error_message=str(e),
-        )
-        db.commit()
-        raise HTTPException(status_code=500, detail=f"이력서 키워드 분석 실패: {e}") from e
+        raise HTTPException(status_code=500, detail=f"이력서 삭제 실패: {e}") from e

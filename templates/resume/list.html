@@ -40,6 +40,7 @@
                     <div class="resume-card">
                         <div class="card-header">
                             <div class="file-icon">📄</div>
+
                             <div class="file-info">
                                 <div class="file-name">{{ resume.resume_file_name }}</div>
                                 <div class="file-meta">
@@ -49,6 +50,15 @@
                                     {% endif %}
                                 </div>
                             </div>
+
+                            <form
+                                action="/resumes/{{ resume.resume_id }}/delete"
+                                method="post"
+                                class="card-delete-form"
+                                onsubmit="return confirm('이 이력서와 분석 결과를 삭제하시겠습니까?');"
+                            >
+                                <button type="submit" class="delete-btn">🗑️</button>
+                            </form>
                         </div>
 
                         <div class="divider"></div>

@@ -80,3 +80,37 @@
 .upload-sub { color: #999; font-size: 14px; }
 .upload-box { cursor: pointer; padding: 40px; }
 .upload-box:hover { background-color: #fcfcfc; }
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.card-actions .detail-btn {
+    flex: 1;
+    width: auto;
+}
+
+.delete-form {
+    margin: 0;
+}
+
+.card-delete-btn {
+    height: 46px;
+    padding: 0 16px;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    border-radius: 8px;
+    color: #d9534f;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.card-delete-btn:hover {
+    border-color: #d9534f;
+    background-color: #fff5f5;
+}
+
