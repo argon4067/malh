@@ -87,17 +87,27 @@ def login(
     userPw: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    # DB에서 유저 조회
     user = db.query(User).filter(User.user_username == userId).first()
 
+    # 1. 아이디가 없거나 비밀번호가 틀린 경우
     if not user or not verify_password(userPw, user.user_pw):
         return templates.TemplateResponse(
             "auth/login.html",
             {"request": request, "error": "아이디 또는 비밀번호가 일치하지 않습니다."}
         )
 
+    # ✅ 2. 탈퇴한 회원(user_status == 0)인 경우 로그인 차단
+    if user.user_status == 0:
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {"request": request, "error": "탈퇴 처리된 계정입니다."}
+        )
+
+    # 성공 시 메인 페이지로 이동
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     
-    # ✅ 쿠키 발급 시 path="/" 명시 (전체 사이트에서 동일한 쿠키 사용)
+    # 쿠키 발급 시 path="/" 명시
     response.set_cookie(key="login_user", value=user.user_username, path="/")
     return response
 
@@ -154,5 +164,32 @@ def change_password(
     
     response = JSONResponse(content={"message": "비밀번호가 성공적으로 변경되었습니다."})
     # ✅ 백엔드에서도 쿠키 삭제 시 path="/" 명시
+    response.delete_cookie(key="login_user", path="/")
+    return response
+
+# =====================================================
+# 회원 탈퇴 API (POST)
+# =====================================================
+@router.post("/auth/withdraw")
+def withdraw_user(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    # 1. 로그인 여부 확인 (쿠키에서 가져오기)
+    user_id = request.cookies.get("login_user")
+    if not user_id:
+        return JSONResponse(status_code=401, content={"detail": "로그인이 필요합니다."})
+        
+    # 2. DB에서 유저 조회
+    user = db.query(User).filter(User.user_username == user_id).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"detail": "사용자를 찾을 수 없습니다."})
+        
+    # 3. 회원 상태 변경 (user_status = 0 으로 소프트 딜리트)
+    user.user_status = 0
+    db.commit()
+    
+    # 4. 성공 응답 및 쿠키 삭제 (강제 로그아웃 처리)
+    response = JSONResponse(content={"message": "회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다."})
     response.delete_cookie(key="login_user", path="/")
     return response
