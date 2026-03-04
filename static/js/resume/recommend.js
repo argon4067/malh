@@ -1,36 +1,44 @@
-/**
- * recommend.js - 이력서 피드백 분석 시뮬레이션 (jQuery)
- */
-
 function startAnalysis() {
-    const $resumeSelect = $('#resumeSelect');
-    const $companyUrl = $('#companyUrl');
-    const $inputForm = $('#inputForm');
-    const $loadingArea = $('#loadingArea');
-    const $resultArea = $('#resultArea');
-
-    // [Logic 1] 유효성 검사
-    if (!$resumeSelect.val()) {
-        if (confirm("분석할 이력서가 선택되지 않았습니다. 이력서 관리 페이지로 이동하시겠습니까?")) {
-            location.href = 'resume.html';
-        }
+    const resumeSelect = document.getElementById("resumeSelect");
+    const selectedResumeId = resumeSelect.value;
+    
+    if (!selectedResumeId) {
+        alert("분석할 이력서가 없습니다. 이력서 등록 페이지로 이동합니다.");
+        window.location.href = "/resumes"; 
         return;
     }
 
-    if (!$companyUrl.val().trim()) {
-        alert("채용 공고 URL 또는 정보를 입력해 주세요.");
-        $companyUrl.focus();
-        return;
-    }
+    const companyUrl = document.getElementById("companyUrl").value;
+    
+    document.getElementById("inputForm").style.display = "none";
+    document.getElementById("loadingArea").style.display = "block";
+    document.getElementById("resultArea").style.display = "none";
 
-    // [Logic 2] UI 전환: 입력 -> 로딩
-    $inputForm.hide();
-    $loadingArea.show();
+    /* 나중에 실제 API 연동 시 사용할 코드
+    fetch('/api/feedback/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            resume_id: selectedResumeId,
+            company_url: companyUrl
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById("loadingArea").style.display = "none";
+        document.getElementById("resultArea").style.display = "block";
+    })
+    .catch(error => {
+        alert("분석 중 오류가 발생했습니다.");
+        console.error(error);
+        document.getElementById("loadingArea").style.display = "none";
+        document.getElementById("inputForm").style.display = "block";
+    });
+    */
 
-    // [Logic 3] 시뮬레이션 (3초 후 결과 표시)
+    // 임시 UI 테스트용 타이머
     setTimeout(() => {
-        // 실제 구현 시: 서버 API 호출 및 크롤링 데이터 수신
-        $loadingArea.hide();
-        $resultArea.show();
-    }, 3000);
+        document.getElementById("loadingArea").style.display = "none";
+        document.getElementById("resultArea").style.display = "block";
+    }, 2000);
 }

@@ -17,14 +17,25 @@
                 <label for="resumeSelect">분석할 이력서 선택</label>
                 <select id="resumeSelect">
                     <option value="">이력서를 선택하세요</option>
-                    <option value="1">이력서 1.pdf (2026-02-19)</option>
-                    <option value="2">이력서 2.pdf (2026-02-10)</option>
+                    
+                    {% if resumes %}
+                        {% for resume in resumes %}
+                            <option value="{{ resume.resume_id }}">
+                                {{ resume.resume_file_name }}
+                                {% if resume.resume_created_at %}
+                                    ({{ resume.resume_created_at.strftime('%Y-%m-%d') }})
+                                {% endif %}
+                            </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="" disabled>등록된 이력서가 없습니다.</option>
+                    {% endif %}
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="companyUrl">채용 공고 URL (또는 회사명/직무)</label>
-                <input type="text" id="companyUrl" placeholder="예: https://wanted.co.kr/wd/12345 또는 삼성전자/AI개발">
+                <input type="text" id="companyUrl" placeholder="예: https://wanted.co.kr">
             </div>
 
             <button type="button" class="analyze-btn" onclick="startAnalysis()">분석 시작하기</button>
@@ -42,25 +53,19 @@
             <h2 class="section-title">분석 결과 리포트</h2>
             
             <div class="analysis-result">
-                <div class="match-score-box">
-                    <div class="score-label">직무 적합도 점수</div>
-                    <div class="score-value">85<span>점</span></div>
-                </div>
-
                 <div class="feedback-box good">
                     <h4>✅ 강점 및 적합 포인트</h4>
-                    <p>지원 직무에서 요구하는 Python 및 PyTorch 숙련도가 이력서 내 프로젝트 경험을 통해 충분히 입증되었습니다.</p>
+                    <p>지원 직무에서 요구하는 숙련도가 이력서 내 프로젝트 경험을 통해 충분히 입증되었습니다.</p>
                 </div>
 
                 <div class="feedback-box bad">
                     <h4>⚠️ 보완 권장 사항</h4>
-                    <p>공고에서 강조하는 '대용량 트래픽 처리 경험'에 대한 구체적인 수치 제시가 이력서에 부족해 보입니다.</p>
+                    <p>공고에서 강조하는 경험에 대한 구체적인 수치 제시가 이력서에 부족해 보입니다.</p>
                 </div>
             </div>
 
             <div class="btn-group">
                 <button class="btn btn-retry" onclick="location.reload()">다시 분석하기</button>
-                <button class="btn btn-practice" onclick="location.href='/interviews/{{ session_id }}'">관련 질문으로 연습하기</button>
             </div>
         </div>
     </div>

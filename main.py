@@ -27,6 +27,8 @@ import models.user
 from web.router import web_router
 
 from services.member_service import router as member_router
+# ✅ 피드백 라우터 추가 (파일을 services 폴더에 생성했다고 가정)
+from services.feedback_service import router as feedback_router
 
 # 앱 시작 시 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -49,6 +51,9 @@ def create_app() -> FastAPI:
 
     # 회원가입/로그인 라우터
     app.include_router(member_router)
+
+    # ✅ 피드백 라우터 등록
+    app.include_router(feedback_router)
 
     # ✅ 메인 페이지 경로 추가
     @app.get("/", response_class=HTMLResponse)
