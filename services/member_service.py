@@ -107,3 +107,21 @@ def logout():
     # 쿠키 삭제를 통한 로그아웃 처리
     response.delete_cookie(key="login_user")
     return response
+
+# =====================================================
+# 아이디 중복 확인 API (GET)
+# =====================================================
+@router.get("/auth/check-id")
+def check_id(userId: str, db: Session = Depends(get_db)):
+    # 1. DB 조회 전, 아이디 형식 먼저 검증
+    if not re.match(ID_REGEX, userId):
+        return {"exists": False, "invalid_format": True}
+
+    # 2. DB에서 해당 아이디를 가진 유저 검색
+    existing_user = db.query(User).filter(User.user_username == userId).first()
+    
+    # 3. 존재하면 exists: True, 없으면 exists: False 반환
+    if existing_user:
+        return {"exists": True, "invalid_format": False}
+        
+    return {"exists": False, "invalid_format": False}
