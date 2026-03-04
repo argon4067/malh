@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from models.user import User
 from models.audio_recording import AudioRecording
 from models.interview_session import InterviewSession
 from models.question import Question
@@ -22,6 +23,7 @@ from models.select_question import SelectQuestion
 from models.speech_score_summary import SpeechScoreSummary
 from models.transcript import Transcript
 from fastapi.responses import RedirectResponse
+
 from services.resume_service import (
     DEFAULT_MODEL,
     analyze_saved_resume,
@@ -30,6 +32,7 @@ from services.resume_service import (
     get_resume_analysis_result,
 )
 from services.speech_score_service import calculate_speech_scores, upsert_speech_summary
+
 from services.stt_service import (
     build_recording_paths,
     resolve_recording_extension,
@@ -41,6 +44,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 web_router = APIRouter()
+
+def _get_login_user(request: Request, db: Session) -> User:
+    login_user = request.cookies.get("login_user")
+    if not login_user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    user = (
+        db.query(User)
+        .filter(User.user_username == login_user)
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="유효하지 않은 로그인 정보입니다.")
+
+    return user
+
+
+def _get_owned_resume(db: Session, user_id: int, resume_id: int) -> Resume:
+    resume = (
+        db.query(Resume)
+        .filter(Resume.resume_id == resume_id, Resume.user_id == user_id)
+        .first()
+    )
+    if not resume:
+        raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
+    return resume
 
 
 def _get_resume_id_by_session(db: Session, session_id: int) -> int | None:
@@ -89,8 +118,11 @@ async def resume_list(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    user = _get_login_user(request, db)
+
     resumes = (
         db.query(Resume)
+        .filter(Resume.user_id == user.user_id)
         .order_by(Resume.resume_id.desc())
         .all()
     )
@@ -108,11 +140,23 @@ async def resume_list(
 
 @web_router.post("/resumes")
 async def create_resume(
-    user_id: int = Form(...),
+    request: Request,
     model: str = Form(DEFAULT_MODEL),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    login_user = request.cookies.get("login_user")
+    if not login_user:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    user = (
+        db.query(User)
+        .filter(User.user_username == login_user)
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="유효하지 않은 로그인 정보입니다.")
+
     try:
         data = await file.read()
     except Exception as e:
@@ -123,7 +167,7 @@ async def create_resume(
 
     resume = create_resume_record(
         db=db,
-        user_id=user_id,
+        user_id=user.user_id,
         original_filename=file.filename or "resume.pdf",
         data=data,
     )
@@ -156,6 +200,9 @@ async def resume_detail(
     resume_id: int,
     db: Session = Depends(get_db),
 ):
+    user = _get_login_user(request, db)
+    _get_owned_resume(db, user.user_id, resume_id)
+
     result = get_resume_analysis_result(db, resume_id)
 
     return templates.TemplateResponse(
@@ -166,7 +213,11 @@ async def resume_detail(
             "resume": result["resume"],
             "classification": result["classification"],
             "keywords": result["keywords"],
-        },
+            "structured": result["structured"],
+            "practice_history": [],
+            "weaknesses": [],
+            "score_history": [],
+        }
     )
 
 
@@ -176,6 +227,9 @@ async def resume_feedback(
     resume_id: int,
     db: Session = Depends(get_db),
 ):
+    user = _get_login_user(request, db)
+    _get_owned_resume(db, user.user_id, resume_id)
+
     return templates.TemplateResponse(
         "resume/feedback.html",
         {
@@ -188,10 +242,14 @@ async def resume_feedback(
 
 @web_router.post("/resumes/{resume_id}/analyze")
 async def analyze_resume(
+    request: Request,
     resume_id: int,
     model: str = Form(DEFAULT_MODEL),
     db: Session = Depends(get_db),
 ):
+    user = _get_login_user(request, db)
+    _get_owned_resume(db, user.user_id, resume_id)
+
     analyze_saved_resume(
         db=db,
         resume_id=resume_id,
@@ -201,9 +259,13 @@ async def analyze_resume(
 
 @web_router.post("/resumes/{resume_id}/delete")
 async def remove_resume(
+    request: Request,
     resume_id: int,
     db: Session = Depends(get_db),
 ):
+    user = _get_login_user(request, db)
+    _get_owned_resume(db, user.user_id, resume_id)
+
     delete_resume(db=db, resume_id=resume_id)
     return RedirectResponse(url="/resumes", status_code=status.HTTP_303_SEE_OTHER)
 

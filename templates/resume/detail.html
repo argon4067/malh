@@ -1,6 +1,6 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}이력서 상세 통합 - 말해뭐해{% endblock %}
+{% block title %}이력서 상세 - 말해뭐해{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/resume/resume_detail.css">
@@ -11,10 +11,27 @@
     <div class="container">
         <div class="detail-header">
             <div class="file-info">
-                <h2><span class="file-icon">📄</span> 이력서 1.pdf</h2>
-                <div class="file-meta">2026-02-19 업로드 | 2.5MB</div>
+                <h2>
+                    <span class="file-icon">📄</span>
+                    {{ resume.resume_file_name }}
+                </h2>
+                <div class="file-meta">
+                    {% if resume.resume_created_at %}
+                        {{ resume.resume_created_at.strftime('%Y-%m-%d') }} 업로드
+                    {% else %}
+                        업로드일 정보 없음
+                    {% endif %}
+                    {% if resume.resume_file_size %}
+                        | {{ (resume.resume_file_size / 1024 / 1024) | round(1) }}MB
+                    {% endif %}
+                    | {{ resume.resume_file_type }}
+                </div>
             </div>
-            <button class="practice-btn" onclick="startPractice()">
+
+            <button
+                class="practice-btn"
+                onclick="location.href='/resumes/{{ resume.resume_id }}/feedback'"
+            >
                 연습 시작하기 ▶
             </button>
         </div>
@@ -28,22 +45,47 @@
         <div id="tab-overview" class="tab-content active">
             <div class="overview-card">
                 <h3 class="section-title">기본 정보</h3>
+
                 <div class="info-group">
                     <div class="info-label">포지션</div>
-                    <div class="info-value">AI 개발자</div>
+                    <div class="info-value">
+                        {% if structured and structured.structured_position %}
+                            {{ structured.structured_position }}
+                        {% elif classification and classification.class_job_role %}
+                            {{ classification.class_job_role }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
                 </div>
+
                 <div class="info-group">
                     <div class="info-label">경력</div>
-                    <div class="info-value">신입</div>
+                    <div class="info-value">
+                        {% if structured and structured.structured_career_summary %}
+                            {{ structured.structured_career_summary }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
                 </div>
+
                 <div class="info-group" style="align-items: flex-start;">
-                    <div class="info-label" style="margin-top: 6px;">기술 스택</div>
+                    <div class="info-label" style="margin-top: 6px;">기술</div>
                     <div class="tech-tags">
-                        <span class="tag">MySQL</span>
-                        <span class="tag">Python</span>
-                        <span class="tag">Streamlit</span>
-                        <span class="tag">Java</span>
-                        <span class="tag">Docker</span>
+                        {% if structured and structured.structured_skills %}
+                            {% for skill in structured.structured_skills %}
+                                <span class="tag">{{ skill }}</span>
+                            {% endfor %}
+                        {% elif keywords %}
+                            {% for keyword in keywords %}
+                                {% if keyword.keyword_type in ["SKILL", "TOOL"] %}
+                                    <span class="tag">{{ keyword.keyword_keyword }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <span class="tag tag-empty">기술 정보 없음</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -52,36 +94,118 @@
         <div id="tab-content" class="tab-content">
             <div class="content-section">
                 <h3 class="section-header">학력</h3>
-                <div class="list-item">
-                    <div class="item-header">
-                        <span class="item-title">한국대학교</span>
-                        <span class="item-period">2019.03 - 2025.02</span>
-                    </div>
-                    <div class="item-subtitle">컴퓨터공학과 | 학사 졸업</div>
-                    <div class="item-desc">- 학점: 4.0 / 4.5</div>
-                </div>
+                {% if structured and structured.structured_educations %}
+                    {% for edu in structured.structured_educations %}
+                        <div class="list-item">
+                            <div class="item-header">
+                                <span class="item-title">{{ edu.school }}</span>
+                                <span class="item-period">{{ edu.start_date or "" }}{% if edu.start_date or edu.end_date %} - {% endif %}{{ edu.end_date or "" }}</span>
+                            </div>
+                            <div class="item-subtitle">
+                                {{ edu.major or "-" }}{% if edu.degree %} | {{ edu.degree }}{% endif %}
+                            </div>
+                            {% if edu.description %}
+                                <div class="item-desc">{{ edu.description }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-box">학력 정보가 없습니다.</div>
+                {% endif %}
+            </div>
+
+            <div class="content-section">
+                <h3 class="section-header">경력사항</h3>
+                {% if structured and structured.structured_experiences %}
+                    {% for exp in structured.structured_experiences %}
+                        <div class="list-item">
+                            <div class="item-header">
+                                <span class="item-title">{{ exp.company }}</span>
+                                <span class="item-period">{{ exp.start_date or "" }}{% if exp.start_date or exp.end_date %} - {% endif %}{{ exp.end_date or "" }}</span>
+                            </div>
+                            <div class="item-subtitle">{{ exp.role or "-" }}</div>
+                            {% if exp.description %}
+                                <div class="item-desc">{{ exp.description }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-box">경력사항이 없습니다.</div>
+                {% endif %}
+            </div>
+
+            <div class="content-section">
+                <h3 class="section-header">프로젝트</h3>
+                {% if structured and structured.structured_projects %}
+                    {% for project in structured.structured_projects %}
+                        <div class="list-item">
+                            <div class="item-header">
+                                <span class="item-title">{{ project.name }}</span>
+                                <span class="item-period">{{ project.start_date or "" }}{% if project.start_date or project.end_date %} - {% endif %}{{ project.end_date or "" }}</span>
+                            </div>
+                            <div class="item-subtitle">{{ project.role or "-" }}</div>
+                            {% if project.description %}
+                                <div class="item-desc">{{ project.description }}</div>
+                            {% endif %}
+                            {% if project.technologies %}
+                                <div class="tech-tags" style="margin-top: 10px;">
+                                    {% for tech in project.technologies %}
+                                        <span class="tag">{{ tech }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-box">프로젝트 정보가 없습니다.</div>
+                {% endif %}
+            </div>
+
+            <div class="content-section">
+                <h3 class="section-header">자격증</h3>
+                {% if structured and structured.structured_certificates %}
+                    {% for cert in structured.structured_certificates %}
+                        <div class="list-item">
+                            <div class="item-header">
+                                <span class="item-title">{{ cert.name }}</span>
+                                <span class="item-period">{{ cert.acquired_date or "-" }}</span>
+                            </div>
+                            <div class="item-subtitle">{{ cert.issuer or "-" }}</div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-box">자격증 정보가 없습니다.</div>
+                {% endif %}
             </div>
         </div>
 
         <div id="tab-analysis" class="tab-content">
             <div class="analysis-grid">
                 <div class="card">
-                    <div class="card-title">📝 최근 연습 기록</div>
-                    <ul class="history-list">
-                        <li class="history-item">
-                            <span class="history-date">2026-02-18</span>
-                            <span class="history-score">78점</span>
-                        </li>
-                    </ul>
+                    <div class="card-title">최근 연습 기록</div>
+                    {% if practice_history %}
+                        <!-- 나중에 반복 렌더링 -->
+                    {% else %}
+                        <div class="empty-box">아직 연습 기록이 없습니다.</div>
+                    {% endif %}
                 </div>
-                <div class="graph-section">
-                    <div class="chart-container">
-                        <div class="bar-group">
-                            <div class="bar-value">78</div>
-                            <div class="bar" style="height: 78%; background-color: var(--primary-orange);"></div>
-                            <div class="x-axis-label">5회</div>
-                        </div>
-                    </div>
+
+                <div class="card">
+                    <div class="card-title">연습 후 약점 3가지</div>
+                    {% if weaknesses %}
+                        <!-- 나중에 반복 렌더링 -->
+                    {% else %}
+                        <div class="empty-box">아직 약점 분석 결과가 없습니다.</div>
+                    {% endif %}
+                </div>
+
+                <div class="card full-width">
+                    <div class="card-title">점수 변화</div>
+                    {% if score_history %}
+                        <!-- 나중에 막대 그래프 렌더링 -->
+                    {% else %}
+                        <div class="empty-box">아직 점수 데이터가 없습니다.</div>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-PROMPT_VERSION_KEYWORD = "RESUME_KEYWORD_V1"
+# PROMPT_VERSION_KEYWORD = "RESUME_KEYWORD_V1"
 
 KEYWORD_SYSTEM_PROMPT = (
     "당신은 이력서를 직무 기준으로 분석해 핵심 키워드를 추출하는 분석기입니다. "

@@ -29,3 +29,4 @@ class LlmRun(Base):
 
     resume_keywords = relationship("ResumeKeyword", back_populates="llm_run")
     resume_classifications = relationship("ResumeClassification", back_populates="llm_run")
+    resume_structureds = relationship("ResumeStructured", back_populates="llm_run")

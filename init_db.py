@@ -5,6 +5,7 @@ from models.user import User
 from models.resume import Resume
 from models.resume_keyword import ResumeKeyword
 from models.resume_classification import ResumeClassification
+from models.resume_structured import ResumeStructured
 from models.question_set import QuestionSet
 from models.question import Question
 from models.question_filter_result import QuestionFilterResult
@@ -17,8 +18,11 @@ from models.speech_score_summary import SpeechScoreSummary
 
 
 def main():
+    Base.metadata.drop_all(bind=engine)
+    print("🗑️ 기존 테이블 삭제 완료")
+
     Base.metadata.create_all(bind=engine)
-    print("✅ 테이블 생성 완료")
+    print("✅ 테이블 재생성 완료")
 
 
 if __name__ == "__main__":

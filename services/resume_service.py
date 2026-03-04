@@ -3,6 +3,7 @@ import io
 import os
 import re
 from typing import List, Optional
+import json
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -23,10 +24,18 @@ from services.prompt.resume.classify_prompt_v2 import (
     CLASSIFY_SYSTEM_PROMPT,
     build_classify_user_prompt,
 )
-from services.prompt.resume.keyword_prompt import (
+from services.prompt.resume.keyword_prompt_v2 import (
     PROMPT_VERSION_KEYWORD,
     KEYWORD_SYSTEM_PROMPT,
     build_keyword_user_prompt,
+)
+
+from models.resume_structured import ResumeStructured
+from schemas.resume_structured import ResumeStructuredResult
+from services.prompt.resume.structure_prompt import (
+    PROMPT_VERSION_STRUCTURE,
+    STRUCTURE_SYSTEM_PROMPT,
+    build_structure_user_prompt,
 )
 
 load_dotenv()
@@ -273,10 +282,17 @@ def get_resume_analysis_result(db: Session, resume_id: int):
         .all()
     )
 
+    structured = (
+        db.query(ResumeStructured)
+        .filter(ResumeStructured.resume_id == resume_id)
+        .first()
+    )
+
     return {
         "resume": resume,
         "classification": classification,
         "keywords": keywords,
+        "structured": structured,
     }
 
 
@@ -301,10 +317,40 @@ def classify_resume_llm(
 
     return resp.output_parsed
 
+def analyze_resume_structure_llm(
+    resume_text: str,
+    job_family: Optional[str],
+    job_role: Optional[str],
+    model: str = DEFAULT_MODEL,
+) -> ResumeStructuredResult:
+    client = get_client()
+
+    resp = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": STRUCTURE_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": build_structure_user_prompt(
+                    resume_text=resume_text,
+                    job_family=job_family,
+                    job_role=job_role,
+                ),
+            },
+        ],
+        text_format=ResumeStructuredResult,
+        truncation="auto",
+    )
+
+    if resp.output_parsed is None:
+        raise RuntimeError("이력서 구조화 분석 파싱 실패")
+
+    return resp.output_parsed
+
 
 def analyze_resume_keywords_llm(
-    resume_text: str,
-    job_family: str,
+    structured_payload: dict,
+    job_family: Optional[str],
     job_role: Optional[str],
     model: str = DEFAULT_MODEL,
 ) -> ResumeKeywordResult:
@@ -317,7 +363,7 @@ def analyze_resume_keywords_llm(
             {
                 "role": "user",
                 "content": build_keyword_user_prompt(
-                    resume_text=resume_text,
+                    structured_json=json.dumps(structured_payload, ensure_ascii=False, indent=2),
                     job_family=job_family,
                     job_role=job_role,
                 ),
@@ -364,13 +410,20 @@ def analyze_saved_resume(
         .filter(ResumeClassification.resume_id == resume_id)
         .first()
     )
+
+    structure_exists = (
+    db.query(ResumeStructured)
+    .filter(ResumeStructured.resume_id == resume_id)
+    .first()
+    )
+
     keyword_exists = (
         db.query(ResumeKeyword)
         .filter(ResumeKeyword.resume_id == resume_id)
         .first()
     )
 
-    if classification_exists and keyword_exists:
+    if classification_exists and keyword_exists and structure_exists:
         return
 
     classification_row = classification_exists
@@ -412,13 +465,58 @@ def analyze_saved_resume(
             )
             db.commit()
             raise HTTPException(status_code=500, detail=f"이력서 분류 실패: {e}") from e
+        
+    if not structure_exists:
+        try:
+            structure_result = analyze_resume_structure_llm(
+                resume_text=resume.resume_extracted_text,
+                job_family=classification_row.class_job_family if classification_row else None,
+                job_role=classification_row.class_job_role if classification_row else None,
+                model=model,
+            )
+
+            structure_run = save_llm_run_success(
+                db=db,
+                stage="RESUME_STRUCTURE_V1",
+                model=model,
+                prompt_version=PROMPT_VERSION_STRUCTURE,
+            )
+
+            structure_row = ResumeStructured(
+                resume_id=resume.resume_id,
+                llm_id=structure_run.llm_id,
+                structured_position=structure_result.position,
+                structured_career_summary=(structure_result.career_summary or "")[:1000] or None,
+                structured_skills=structure_result.skills,
+                structured_educations=[x.model_dump() for x in structure_result.educations],
+                structured_experiences=[x.model_dump() for x in structure_result.experiences],
+                structured_projects=[x.model_dump() for x in structure_result.projects],
+                structured_certificates=[x.model_dump() for x in structure_result.certificates],
+            )
+            db.add(structure_row)
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            save_llm_run_failed(
+                db=db,
+                stage="RESUME_STRUCTURE_V1",
+                model=model,
+                prompt_version=PROMPT_VERSION_STRUCTURE,
+                error_code=type(e).__name__,
+                error_message=str(e),
+            )
+            db.commit()
+            raise HTTPException(status_code=500, detail=f"이력서 구조화 분석 실패: {e}") from e
 
     if not keyword_exists:
         try:
+            structured_payload = build_structured_payload(structure_row)
+
             keyword_result = analyze_resume_keywords_llm(
-                resume_text=resume.resume_extracted_text,
-                job_family=classification_row.class_job_family,
-                job_role=classification_row.class_job_role,
+                structured_payload=structured_payload,
+                job_family=classification_row.class_job_family if classification_row else None,
+                job_role=classification_row.class_job_role if classification_row else None,
                 model=model,
             )
 
@@ -426,7 +524,7 @@ def analyze_saved_resume(
 
             keyword_run = save_llm_run_success(
                 db=db,
-                stage="RESUME_KEYWORD_V1",
+                stage="RESUME_KEYWORD_V2",
                 model=model,
                 prompt_version=PROMPT_VERSION_KEYWORD,
             )
@@ -448,7 +546,7 @@ def analyze_saved_resume(
             db.rollback()
             save_llm_run_failed(
                 db=db,
-                stage="RESUME_KEYWORD_V1",
+                stage="RESUME_KEYWORD_V2",
                 model=model,
                 prompt_version=PROMPT_VERSION_KEYWORD,
                 error_code=type(e).__name__,
@@ -467,6 +565,10 @@ def delete_resume(db: Session, resume_id: int) -> None:
             ResumeClassification.resume_id == resume_id
         ).delete(synchronize_session=False)
 
+        db.query(ResumeStructured).filter(
+            ResumeStructured.resume_id == resume_id
+        ).delete(synchronize_session=False)
+
         db.query(ResumeKeyword).filter(
             ResumeKeyword.resume_id == resume_id
         ).delete(synchronize_session=False)
@@ -477,3 +579,14 @@ def delete_resume(db: Session, resume_id: int) -> None:
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"이력서 삭제 실패: {e}") from e
+    
+def build_structured_payload(structured_row: ResumeStructured) -> dict:
+    return {
+        "position": structured_row.structured_position,
+        "career_summary": structured_row.structured_career_summary,
+        "skills": structured_row.structured_skills or [],
+        "educations": structured_row.structured_educations or [],
+        "experiences": structured_row.structured_experiences or [],
+        "projects": structured_row.structured_projects or [],
+        "certificates": structured_row.structured_certificates or [],
+    }

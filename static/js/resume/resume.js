@@ -10,7 +10,6 @@ $(function () {
     const $fileInput = $('#fileInput');
 
     // ✅ 변경: 서버로 보낼 값
-    const userId = $('#userIdInput').val() || '1';
     const model = $('#modelInput').val() || 'gpt-4o-mini';
 
     // 2. 화면 전환 이벤트

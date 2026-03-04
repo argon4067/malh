@@ -28,5 +28,6 @@ class Resume(Base):
     user = relationship("User", back_populates="resumes")
     keywords = relationship("ResumeKeyword", back_populates="resume")
     classification = relationship("ResumeClassification", back_populates="resume", uselist=False)
+    structured = relationship("ResumeStructured", back_populates="resume", uselist=False)
     question_sets = relationship("QuestionSet", back_populates="resume")
     interview_sessions = relationship("InterviewSession", back_populates="resume")
