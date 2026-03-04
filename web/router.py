@@ -31,6 +31,10 @@ from services.resume_service import (
     delete_resume,
     get_resume_analysis_result,
 )
+
+from models.question_set import QuestionSet
+from models.question_filter_result import QuestionFilterResult
+from services.question_service import generate_questions_for_resume
 from services.speech_score_service import calculate_speech_scores, upsert_speech_summary
 
 from services.stt_service import (
@@ -268,6 +272,136 @@ async def remove_resume(
 
     delete_resume(db=db, resume_id=resume_id)
     return RedirectResponse(url="/resumes", status_code=status.HTTP_303_SEE_OTHER)
+
+# question
+@web_router.post("/questions/generate/{resume_id}")
+async def generate_questions(
+    request: Request,
+    resume_id: int,
+    db: Session = Depends(get_db),
+):
+    user = _get_login_user(request, db)
+    _get_owned_resume(db, user.user_id, resume_id)
+
+    try:
+        question_set = generate_questions_for_resume(
+            db=db,
+            resume_id=resume_id,
+            target_count=30,
+            purpose="DEFAULT",
+        )
+
+        selected_questions = (
+            db.query(Question)
+            .filter(
+                Question.set_id == question_set.set_id,
+                Question.qust_is_selected == 1,
+            )
+            .order_by(Question.qust_id.asc())
+            .all()
+        )
+
+        return {
+            "message": "질문 생성이 완료되었습니다.",
+            "set_id": question_set.set_id,
+            "set_status": question_set.set_status,
+            "set_attempt": question_set.set_attempt,
+            "selected_count": len(selected_questions),
+            "questions": [
+                {
+                    "qust_id": q.qust_id,
+                    "category": q.qust_category,
+                    "difficulty": q.qust_difficulty,
+                    "question_text": q.qust_question_text,
+                    "evidence": q.qust_evidence,
+                }
+                for q in selected_questions
+            ],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"질문 생성 실패: {e}") from e
+
+
+@web_router.get("/questions/set/{set_id}")
+async def get_question_set_result(
+    request: Request,
+    set_id: int,
+    db: Session = Depends(get_db),
+):
+    user = _get_login_user(request, db)
+
+    question_set = (
+        db.query(QuestionSet)
+        .filter(QuestionSet.set_id == set_id)
+        .first()
+    )
+    if not question_set:
+        raise HTTPException(status_code=404, detail="질문 세트를 찾을 수 없습니다.")
+
+    _get_owned_resume(db, user.user_id, question_set.resume_id)
+
+    selected_questions = (
+        db.query(Question)
+        .filter(
+            Question.set_id == set_id,
+            Question.qust_is_selected == 1,
+        )
+        .order_by(Question.qust_id.asc())
+        .all()
+    )
+
+    rejected_questions = (
+        db.query(Question, QuestionFilterResult)
+        .join(
+            QuestionFilterResult,
+            Question.qust_id == QuestionFilterResult.qust_id,
+        )
+        .filter(
+            Question.set_id == set_id,
+            Question.qust_is_selected == 0,
+        )
+        .order_by(Question.qust_id.asc())
+        .all()
+    )
+
+    return {
+        "set_id": question_set.set_id,
+        "resume_id": question_set.resume_id,
+        "set_status": question_set.set_status,
+        "set_attempt": question_set.set_attempt,
+        "set_purpose": question_set.set_purpose,
+        "selected_count": len(selected_questions),
+        "rejected_count": len(rejected_questions),
+        "selected_questions": [
+            {
+                "qust_id": q.qust_id,
+                "category": q.qust_category,
+                "difficulty": q.qust_difficulty,
+                "question_text": q.qust_question_text,
+                "evidence": q.qust_evidence,
+            }
+            for q in selected_questions
+        ],
+        "rejected_questions": [
+            {
+                "qust_id": q.qust_id,
+                "category": q.qust_category,
+                "difficulty": q.qust_difficulty,
+                "question_text": q.qust_question_text,
+                "evidence": q.qust_evidence,
+                "reasons": f.qfr_reasons,
+                "duplicate_similarity": float(f.qfr_duplicate_similarity)
+                if f.qfr_duplicate_similarity is not None
+                else None,
+            }
+            for q, f in rejected_questions
+        ],
+    }
+
+
 
 
 # Interview

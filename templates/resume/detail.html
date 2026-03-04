@@ -29,8 +29,10 @@
             </div>
 
             <button
-                class="practice-btn"
-                onclick="location.href='/resumes/{{ resume.resume_id }}/feedback'"
+                type="button"
+                id="generateQuestionsBtn"
+                class="practice-btn secondary-btn"
+                data-resume-id="{{ resume.resume_id }}"
             >
                 연습 시작하기 ▶
             </button>
