@@ -1,9 +1,10 @@
 import re
 from fastapi import APIRouter, Request, Form, Depends
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from passlib.context import CryptContext
 from starlette import status
+from pydantic import BaseModel
 
 # SQLAlchemy 세션 및 모델 임포트
 from sqlalchemy.orm import Session
@@ -23,6 +24,10 @@ def hash_password(password: str):
 
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
+
+# JSON 요청 본문을 받기 위한 Pydantic 스키마
+class PasswordChangeRequest(BaseModel):
+    new_password: str
 
 # =====================================================
 # 회원가입 페이지 (GET)
@@ -84,18 +89,16 @@ def login(
 ):
     user = db.query(User).filter(User.user_username == userId).first()
 
-    # 아이디가 없거나 비밀번호가 틀리면 에러 반환
     if not user or not verify_password(userPw, user.user_pw):
         return templates.TemplateResponse(
             "auth/login.html",
             {"request": request, "error": "아이디 또는 비밀번호가 일치하지 않습니다."}
         )
 
-    # 성공 시 메인 페이지로 이동
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     
-    # 로그인 상태 유지를 위한 쿠키 발급
-    response.set_cookie(key="login_user", value=user.user_username)
+    # ✅ 쿠키 발급 시 path="/" 명시 (전체 사이트에서 동일한 쿠키 사용)
+    response.set_cookie(key="login_user", value=user.user_username, path="/")
     return response
 
 # =====================================================
@@ -104,8 +107,8 @@ def login(
 @router.get("/auth/logout")
 def logout():
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    # 쿠키 삭제를 통한 로그아웃 처리
-    response.delete_cookie(key="login_user")
+    # ✅ 쿠키 삭제 시 path="/" 명시
+    response.delete_cookie(key="login_user", path="/")
     return response
 
 # =====================================================
@@ -113,15 +116,43 @@ def logout():
 # =====================================================
 @router.get("/auth/check-id")
 def check_id(userId: str, db: Session = Depends(get_db)):
-    # 1. DB 조회 전, 아이디 형식 먼저 검증
     if not re.match(ID_REGEX, userId):
         return {"exists": False, "invalid_format": True}
 
-    # 2. DB에서 해당 아이디를 가진 유저 검색
     existing_user = db.query(User).filter(User.user_username == userId).first()
     
-    # 3. 존재하면 exists: True, 없으면 exists: False 반환
     if existing_user:
         return {"exists": True, "invalid_format": False}
         
     return {"exists": False, "invalid_format": False}
+
+# =====================================================
+# 비밀번호 변경 API (POST)
+# =====================================================
+@router.post("/auth/change-password")
+def change_password(
+    request: Request,
+    data: PasswordChangeRequest,
+    db: Session = Depends(get_db)
+):
+    user_id = request.cookies.get("login_user")
+    if not user_id:
+        return JSONResponse(status_code=401, content={"detail": "로그인이 필요합니다."})
+        
+    if not re.match(PW_REGEX, data.new_password):
+        return JSONResponse(status_code=400, content={"detail": "비밀번호 형식이 올바르지 않습니다."})
+        
+    user = db.query(User).filter(User.user_username == user_id).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"detail": "사용자를 찾을 수 없습니다."})
+        
+    if verify_password(data.new_password, user.user_pw):
+        return JSONResponse(status_code=400, content={"detail": "기존 비밀번호와 동일합니다. 다른 비밀번호를 사용해 주세요."})
+        
+    user.user_pw = hash_password(data.new_password)
+    db.commit()
+    
+    response = JSONResponse(content={"message": "비밀번호가 성공적으로 변경되었습니다."})
+    # ✅ 백엔드에서도 쿠키 삭제 시 path="/" 명시
+    response.delete_cookie(key="login_user", path="/")
+    return response

@@ -1,5 +1,27 @@
 /* Withdraw Page Specific Styles */
 
+.sub-nav {
+    background-color: var(--white);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 40px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.sub-nav ul { display: flex; list-style: none; gap: 30px; }
+.sub-nav a { font-size: 15px; font-weight: 500; color: var(--text-sub); }
+.sub-nav a.active { color: var(--primary-orange); font-weight: 700; }
+
+
+.change-container-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 20px;
+}
+
 .withdraw-container-wrapper {
     flex: 1;
     display: flex;
