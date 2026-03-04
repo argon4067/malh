@@ -77,4 +77,5 @@ temp/
 
 # 가상환경
 .venv
-activate.batstorage/audio/ 
+activate.batstorage/audio/
+activate.bat
