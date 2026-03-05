@@ -13,3 +13,4 @@ pymupdf
 openai
 passlib
 faster-whisper
+cryptography
