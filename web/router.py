@@ -530,7 +530,7 @@ async def start_resume_analysis(
     user = _get_login_user(request, db)
     resume = _get_owned_resume(db, user.user_id, resume_id)
 
-    # ✅ 이미 완료된 경우
+    # 이미 완료된 경우
     if resume.resume_status == "DONE":
         return {
             "ok": True,
@@ -539,7 +539,7 @@ async def start_resume_analysis(
             "message": "이미 분석 완료된 이력서입니다.",
         }
 
-    # ✅ 이미 진행 중인 경우
+    # 이미 진행 중인 경우
     if resume.resume_status in RUNNING_RESUME_STATUSES:
         return {
             "ok": True,
@@ -548,10 +548,10 @@ async def start_resume_analysis(
             "message": "이미 분석이 진행 중입니다.",
         }
 
-    # ✅ 시작 상태로 변경
+    # 시작 상태로 변경
     update_resume_status(db, resume, "CLASSIFYING")
 
-    # ✅ 백그라운드 실행
+    # 백그라운드 실행
     background_tasks.add_task(_run_resume_pipeline_background, resume_id, model)
 
     return {

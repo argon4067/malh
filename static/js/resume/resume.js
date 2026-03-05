@@ -9,7 +9,7 @@ $(function () {
     const $dropZone = $('#dropZone');
     const $fileInput = $('#fileInput');
 
-    // ✅ 변경: 서버로 보낼 값
+    // 서버로 보낼 값
     const model = $('#modelInput').val() || 'gpt-4o-mini';
 
     // 2. 화면 전환 이벤트
@@ -30,12 +30,12 @@ $(function () {
 
     // 3. 파일 업로드 기능 (드래그 앤 드롭 & 클릭)
 
-    // ✅ 유지: 클릭 시 파일 탐색기 열기
+    // 클릭 시 파일 탐색기 열기
     $dropZone.on('click', function () {
         $fileInput[0].click();
     });
 
-    // ✅ 유지: click 재귀 방지
+    // click 재귀 방지
     $fileInput.on('click', function (e) {
         e.stopPropagation();
     });
@@ -69,7 +69,7 @@ $(function () {
         }
     });
 
-    // ✅ 변경: 실제 업로드 처리
+    // 실제 업로드 처리
     function handleFileUpload(file) {
         const formData = new FormData();
         formData.append('model', model);
@@ -87,7 +87,7 @@ $(function () {
                 return;
             }
 
-            // ✅ 변경: 업로드 성공 -> wait 페이지 이동
+            // 업로드 성공 -> wait 페이지 이동
             location.href = `/resumes/${result.resume_id}/wait?model=${encodeURIComponent(result.model)}`;
         })
         .catch((error) => {
@@ -95,10 +95,4 @@ $(function () {
             alert('업로드 중 오류가 발생했습니다.');
         });
     }
-
-    // ✅ 삭제 대상:
-    // - createResumeCard()
-    // - updateTotalCount()
-    // - 프론트에서 가짜 카드 prepend 하는 로직
-    // - delete-btn 동적 삭제 시뮬레이션
 });

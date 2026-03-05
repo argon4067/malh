@@ -33,7 +33,7 @@ from services.prompt.resume.keyword_prompt_v2 import (
 
 from models.resume_structured import ResumeStructured
 from schemas.resume_structured import ResumeStructuredResult
-from services.prompt.resume.structure_prompt import (
+from services.prompt.resume.structure_prompt_v1 import (
     PROMPT_VERSION_STRUCTURE,
     STRUCTURE_SYSTEM_PROMPT,
     build_structure_user_prompt,
@@ -77,6 +77,49 @@ def normalize_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+SECTION_HINTS = [
+    "학력", "교육", "경력", "경험", "프로젝트", "기술", "스킬", "역량",
+    "자격증", "수상", "성과", "대외활동", "포트폴리오", "자기소개", "요약",
+]
+
+EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+PHONE_RE = re.compile(r"(01[016789])[-\s]?\d{3,4}[-\s]?\d{4}")
+DATE_RE = re.compile(r"(19|20)\d{2}[./-]\d{1,2}")
+
+def is_probable_resume(text: str):
+    t = (text or "").strip()
+    reasons = []
+    score = 0
+
+    if len(t) < 500:
+        reasons.append("텍스트 길이가 너무 짧음(<500자)")
+    else:
+        score += 1
+
+    hits = [k for k in SECTION_HINTS if k in t]
+    if len(hits) >= 2:
+        score += 2
+    elif len(hits) == 1:
+        score += 1
+        reasons.append("이력서 섹션 키워드가 1개만 탐지됨")
+    else:
+        reasons.append("이력서 섹션 키워드가 거의 없음")
+
+    if EMAIL_RE.search(t):
+        score += 1
+    else:
+        reasons.append("이메일 형식이 탐지되지 않음")
+
+    if PHONE_RE.search(t):
+        score += 1
+
+    if DATE_RE.search(t):
+        score += 1
+
+    ok = score >= 4
+    return ok, reasons, score
+
 
 
 def detect_file_type(filename: str) -> str:
@@ -262,6 +305,14 @@ def create_resume_record(
 
     if not extracted_text:
         raise HTTPException(status_code=400, detail="텍스트를 추출하지 못했습니다.")
+
+    ok, reasons, score = is_probable_resume(extracted_text)
+    if not ok:
+        reason_msg = ", ".join(reasons[:2])
+        raise HTTPException(
+            status_code=400,
+            detail=f"이 문서는 이력서로 보이지 않습니다. (score={score}) 사유: {reason_msg}",
+        )
 
     if len(extracted_text) > 80000:
         extracted_text = extracted_text[:80000] + "\n\n[TRUNCATED]"
@@ -462,9 +513,12 @@ def analyze_saved_resume(
                 model=model,
             )
 
+            if not classification_result.is_resume:
+                raise HTTPException(status_code=400, detail="이 문서는 이력서가 아닙니다.")
+
             classify_run = save_llm_run_success(
                 db=db,
-                stage="RESUME_CLASSIFY_V2",
+                stage="RESUME_CLASSIFY",
                 model=model,
                 prompt_version=PROMPT_VERSION_CLASSIFY,
             )
@@ -484,7 +538,7 @@ def analyze_saved_resume(
             db.rollback()
             save_llm_run_failed(
                 db=db,
-                stage="RESUME_CLASSIFY_V2",
+                stage="RESUME_CLASSIFY",
                 model=model,
                 prompt_version=PROMPT_VERSION_CLASSIFY,
                 error_code=type(e).__name__,
@@ -508,7 +562,7 @@ def analyze_saved_resume(
 
             structure_run = save_llm_run_success(
                 db=db,
-                stage="RESUME_STRUCTURE_V1",
+                stage="RESUME_STRUCTURE",
                 model=model,
                 prompt_version=PROMPT_VERSION_STRUCTURE,
             )
@@ -532,7 +586,7 @@ def analyze_saved_resume(
             db.rollback()
             save_llm_run_failed(
                 db=db,
-                stage="RESUME_STRUCTURE_V1",
+                stage="RESUME_STRUCTURE",
                 model=model,
                 prompt_version=PROMPT_VERSION_STRUCTURE,
                 error_code=type(e).__name__,
@@ -570,7 +624,7 @@ def analyze_saved_resume(
 
             keyword_run = save_llm_run_success(
                 db=db,
-                stage="RESUME_KEYWORD_V2",
+                stage="RESUME_KEYWORD",
                 model=model,
                 prompt_version=PROMPT_VERSION_KEYWORD,
             )
@@ -594,7 +648,7 @@ def analyze_saved_resume(
             db.rollback()
             save_llm_run_failed(
                 db=db,
-                stage="RESUME_KEYWORD_V2",
+                stage="RESUME_KEYWORD",
                 model=model,
                 prompt_version=PROMPT_VERSION_KEYWORD,
                 error_code=type(e).__name__,

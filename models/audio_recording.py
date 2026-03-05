@@ -8,8 +8,16 @@ class AudioRecording(Base):
     __tablename__ = "audio_recording"
 
     recording_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    inter_id = Column(Integer, ForeignKey("interview_session.inter_id"), nullable=False)
-    sel_id = Column(Integer, ForeignKey("select_question.sel_id"), nullable=False)
+    inter_id = Column(
+        Integer,
+        ForeignKey("interview_session.inter_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    sel_id = Column(
+        Integer,
+        ForeignKey("select_question.sel_id", ondelete="CASCADE"),
+        nullable=False,
+    )
     file_path = Column(String(1024), nullable=False)
     mime_type = Column(String(100), nullable=True)
     size_bytes = Column(BigInteger, nullable=True)

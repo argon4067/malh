@@ -21,7 +21,7 @@
             <div class="dashboard-header">
                 <div class="header-left">
                     <h2>이력서 관리</h2>
-                    <!-- ✅ 변경: 실제 개수 반영 -->
+                    <!-- 실제 개수 반영 -->
                     <p id="total-count-txt">{{ resumes|length }}개의 이력서가 등록되어 있습니다.</p>
                 </div>
                 <button class="add-btn" id="go-upload-btn">
@@ -29,11 +29,11 @@
                 </button>
             </div>
 
-            <!-- ✅ 변경: JS에서 사용할 숨김 값 -->
+            <!-- JS에서 사용할 숨김 값 -->
             <input type="hidden" id="modelInput" value="{{ default_model }}">
 
             <div class="card-list-wrapper" id="resume-list">
-                <!-- ✅ 변경: 하드코딩 제거, DB 데이터 반복 렌더링 -->
+                <!-- DB 데이터 반복 렌더링 -->
                 {% if resumes %}
                     {% for resume in resumes %}
                     <div class="resume-card">
@@ -122,7 +122,7 @@
                             </div>
                         </div>
 
-                        <!-- ✅ 선택: 분석 완료된 경우 상세 보기 -->
+                        <!-- 분석 완료된 경우 상세 보기 -->
                         <button class="detail-btn" onclick="location.href='/resumes/{{ resume.resume_id }}'">
                             상세 보기 &gt;
                         </button>
@@ -155,7 +155,7 @@
                     <p class="upload-sub">PDF, DOCX (최대 10MB)</p>
                 </div>
 
-                <!-- ✅ 유지: JS와 연결되는 input -->
+                <!-- JS와 연결되는 input -->
                 <input type="file" id="fileInput" hidden accept=".pdf,.docx">
             </div>
         </div>
