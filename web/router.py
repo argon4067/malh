@@ -176,7 +176,7 @@ def _run_submit_analysis_job(inter_id: int) -> None:
                 total=0,
                 completed=0,
                 failed_count=0,
-                message="Interview session questions not found.",
+                message="면접 세션 질문을 찾을 수 없습니다.",
             )
             return
 
@@ -210,7 +210,7 @@ def _run_submit_analysis_job(inter_id: int) -> None:
                     {
                         "sel_id": sel_id,
                         "sel_order_no": sel_order_no,
-                        "reason": "Recording is missing.",
+                        "reason": "녹음 파일이 없습니다.",
                     }
                 )
                 _update_submit_progress(
@@ -248,7 +248,7 @@ def _run_submit_analysis_job(inter_id: int) -> None:
                     {
                         "sel_id": sel_id,
                         "sel_order_no": sel_order_no,
-                        "reason": "Transcript text is empty.",
+                        "reason": "전사 텍스트가 비어 있습니다.",
                     }
                 )
                 _update_submit_progress(
@@ -835,6 +835,8 @@ async def interview_questions(
         }
         for row in rows
     ]
+    total_questions = len(question_items)
+    recorded_questions = sum(1 for item in question_items if item["is_recorded"])
 
     return templates.TemplateResponse(
         "interview/questions.html",
@@ -843,6 +845,8 @@ async def interview_questions(
             "session_id": session_id,
             "resume_id": _get_resume_id_by_session(db, session_id),
             "question_items": question_items,
+            "total_questions": total_questions,
+            "recorded_questions": recorded_questions,
         },
     )
 
@@ -1043,7 +1047,7 @@ async def result_transcript(
         except Exception:
             transcript_text = ""
 
-    effective_text = transcript_text or "Transcript is not generated yet."
+    effective_text = transcript_text or "전사 텍스트가 아직 생성되지 않았습니다."
     if row.refine_status == "APPLIED" and (row.refined_text or "").strip():
         effective_text = row.refined_text
     audio_url = f"/storage/{row.file_path}" if (row.file_path or "").strip() else None
@@ -1351,7 +1355,7 @@ async def submit_interview_analysis(
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Interview session questions not found.",
+            detail="면접 세션 질문을 찾을 수 없습니다.",
         )
 
     processed: list[dict[str, int | str]] = []
@@ -1363,7 +1367,7 @@ async def submit_interview_analysis(
                 {
                     "sel_id": int(row.sel_id),
                     "sel_order_no": int(row.sel_order_no),
-                    "reason": "Recording is missing.",
+                    "reason": "녹음 파일이 없습니다.",
                 }
             )
             continue
@@ -1388,7 +1392,7 @@ async def submit_interview_analysis(
                 {
                     "sel_id": int(row.sel_id),
                     "sel_order_no": int(row.sel_order_no),
-                    "reason": "Transcript text is empty.",
+                    "reason": "전사 텍스트가 비어 있습니다.",
                 }
             )
             continue
@@ -1429,7 +1433,31 @@ async def submit_interview_analysis(
 )
 async def start_submit_analysis_job(
     inter_id: int,
+    db: Session = Depends(get_db),
 ):
+    rows = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            AudioRecording.recording_id.label("recording_id"),
+        )
+        .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == inter_id)
+        .all()
+    )
+    total_questions = len(rows)
+    recorded_questions = sum(1 for row in rows if row.recording_id is not None)
+
+    if total_questions != 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"면접 질문은 5개여야 제출할 수 있습니다. (현재 {total_questions}개)",
+        )
+    if recorded_questions < 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"5개 질문의 녹음을 모두 완료해 주세요. ({recorded_questions}/5 완료)",
+        )
+
     with SUBMIT_ANALYSIS_LOCK:
         progress = SUBMIT_ANALYSIS_PROGRESS.get(inter_id)
         if progress and progress.get("status") == "running":

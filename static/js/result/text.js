@@ -20,6 +20,8 @@ $(function () {
     let isPlayingFallback = false;
     let fallbackInterval = null;
     let sentenceTimeline = [];
+    let pinnedSentenceIndex = -1;
+    const HIGHLIGHT_EPSILON_SEC = 0.12;
 
     function hasRealAudio() {
         return Boolean(audioEl);
@@ -77,9 +79,9 @@ $(function () {
             return;
         }
         const html = timeline
-            .map((item) => {
+            .map((item, idx) => {
                 const escapedText = $("<div>").text(item.text).html();
-                return `<span class="script-sentence" data-start="${item.start.toFixed(3)}">${escapedText}</span>`;
+                return `<span class="script-sentence" data-index="${idx}" data-start="${item.start}">${escapedText}</span>`;
             })
             .join(" ");
         $scriptContent.html(html);
@@ -90,20 +92,28 @@ $(function () {
             return -1;
         }
         for (let i = sentenceTimeline.length - 1; i >= 0; i -= 1) {
-            if (currentTime >= sentenceTimeline[i].start) {
+            if ((currentTime + HIGHLIGHT_EPSILON_SEC) >= sentenceTimeline[i].start) {
                 return i;
             }
         }
         return 0;
     }
 
-    function updateHighlight() {
+    function setActiveSentenceByIndex(idx) {
         const $sentences = $(".script-sentence");
         $sentences.removeClass("active");
-        const activeIdx = findActiveSentenceIndex();
-        if (activeIdx >= 0) {
-            $sentences.eq(activeIdx).addClass("active");
+        if (idx >= 0) {
+            $sentences.eq(idx).addClass("active");
         }
+    }
+
+    function updateHighlight() {
+        if (pinnedSentenceIndex >= 0) {
+            setActiveSentenceByIndex(pinnedSentenceIndex);
+            return;
+        }
+        const activeIdx = findActiveSentenceIndex();
+        setActiveSentenceByIndex(activeIdx);
     }
 
     function updateUI() {
@@ -190,7 +200,15 @@ $(function () {
 
         $scriptContent.on("click", ".script-sentence", function () {
             const start = Number($(this).data("start")) || 0;
-            seekTo(start);
+            const idx = Number($(this).data("index"));
+            if (Number.isInteger(idx) && idx >= 0) {
+                pinnedSentenceIndex = idx;
+                setActiveSentenceByIndex(idx);
+                setTimeout(() => {
+                    pinnedSentenceIndex = -1;
+                }, 300);
+            }
+            seekTo(start + 0.001);
 
             if (hasRealAudio()) {
                 audioEl.play().catch(() => {

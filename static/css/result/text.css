@@ -61,4 +61,13 @@
 .script-sentence:hover { background-color: #f1f3f5; }
 .script-sentence.active { background-color: #fff4e6; color: #000; font-weight: 500; }
 
+/* [Buttons] */
+.next-btn-area { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 60px 0 30px; }
+.next-btn {
+    background-color: var(--primary-navy); color: #fff; padding: 16px 60px;
+    border-radius: 50px; font-size: 18px; font-weight: 700; border: none; cursor: pointer;
+    box-shadow: 0 4px 15px rgba(15, 53, 104, 0.3); transition: all 0.2s;
+}
+.next-btn:hover { background-color: #0a254a; transform: translateY(-2px); }
+
 .back-link { display: inline-flex; align-items: center; margin-top: 20px; color: var(--text-sub); font-weight: 600; text-decoration: underline; }

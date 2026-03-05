@@ -3,7 +3,7 @@ const sessionId = Number(submitLoadingContext.sessionId || 0);
 
 async function pollProgress() {
     if (!sessionId) {
-        alert("Invalid session.");
+        alert("세션 정보가 올바르지 않습니다.");
         location.href = "/";
         return;
     }

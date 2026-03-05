@@ -111,7 +111,7 @@ def transcribe_audio_file(audio_path: Path) -> str:
         segment.text.strip() for segment in segments if segment.text and segment.text.strip()
     ).strip()
     if not transcript_text:
-        raise RuntimeError("STT completed but transcript text is empty.")
+        raise RuntimeError("STT 처리는 완료됐지만 전사 텍스트가 비어 있습니다.")
     return transcript_text
 
 

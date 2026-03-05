@@ -3,7 +3,7 @@
 {% block title %}정밀 분석 결과(STT) - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/result/analysis_stt.css?v=20260306">
+<link rel="stylesheet" href="/static/css/result/analysis_stt.css?v=20260310">
 {% endblock %}
 
 {% block content %}
@@ -45,64 +45,25 @@
                 <div class="chart-circle c-fluency" style="background: conic-gradient(var(--primary-navy) {{ score.fluency_score }}%, #eee 0);">
                     <span class="score-value">{{ score.fluency_score }}</span>
                 </div>
-                <div class="score-label">유창성 점수</div>
+                <button type="button" class="help-text-trigger score-label" data-help-key="fluency_score">유창성 점수</button>
             </div>
             <div class="score-card">
                 <div class="chart-circle c-clarity" style="background: conic-gradient(#2CB6E8 {{ score.clarity_score }}%, #eee 0);">
                     <span class="score-value">{{ score.clarity_score }}</span>
                 </div>
-                <div class="score-label">명료성 점수</div>
+                <button type="button" class="help-text-trigger score-label" data-help-key="clarity_score">명료성 점수</button>
             </div>
             <div class="score-card">
                 <div class="chart-circle c-structure" style="background: conic-gradient(#9055FF {{ score.structure_score }}%, #eee 0);">
                     <span class="score-value">{{ score.structure_score }}</span>
                 </div>
-                <div class="score-label">발화 구조 점수</div>
+                <button type="button" class="help-text-trigger score-label" data-help-key="structure_score">발화 구조 점수</button>
             </div>
             <div class="score-card">
                 <div class="chart-circle c-length" style="background: conic-gradient(var(--primary-orange) {{ score.length_score }}%, #eee 0);">
                     <span class="score-value">{{ score.length_score }}</span>
                 </div>
-                <div class="score-label">답변 길이 점수</div>
-            </div>
-        </div>
-
-        <div class="metrics-container" style="margin-bottom: 24px;">
-            <div class="category-column">
-                <div class="category-header">전달 품질</div>
-                <div class="metric-item">
-                    <span class="metric-label">전달 품질 종합</span>
-                    <span class="metric-value">{{ score.delivery_score }}</span>
-                </div>
-                <div class="metric-item">
-                    <span class="metric-label">유창성/명료성 평균</span>
-                    <span class="metric-value">{{ ((score.fluency_score + score.clarity_score) / 2) | round(1) }}</span>
-                </div>
-            </div>
-            <div class="category-column">
-                <div class="category-header">내용 품질</div>
-                <div class="metric-item">
-                    <span class="metric-label">내용 품질 종합</span>
-                    <span class="metric-value">{{ score.content_score }}</span>
-                </div>
-                <div class="metric-item">
-                    <span class="metric-label">질문-답변 주제 적합도</span>
-                    <span class="metric-value">{{ score.metrics.topic_overlap }}</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="report-box analysis">
-            <h3 class="report-header">측정 신뢰도</h3>
-            <div class="report-content">
-                점수 신뢰도 {{ score.confidence_score }} / 100
-                {% if score.confidence_score >= 75 %}
-                (높음)
-                {% elif score.confidence_score >= 50 %}
-                (중간)
-                {% else %}
-                (낮음)
-                {% endif %}
+                <button type="button" class="help-text-trigger score-label" data-help-key="length_score">답변 길이 점수</button>
             </div>
         </div>
 
@@ -111,27 +72,39 @@
                 <div class="card-header header-structure"><span>유창성</span></div>
                 <div class="metrics-grid">
                     <div class="metric-box">
-                        <div class="metric-label">발화 속도</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="wpm">발화 속도</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.wpm }} <span class="metric-sub">wpm</span></div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">속도 변동</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="speed_variation">속도 변동</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.speed_variation }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">머뭇 비율</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="filler_frequency">머뭇 비율</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.filler_ratio }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">반복어 비율</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="repetition_usage">반복어 비율</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.repetition_ratio }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">침묵 구간 길이(최대)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="pause_segment_length">침묵 구간 길이(최대)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.max_pause_sec }}s</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">침묵 총합</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="silence_total">침묵 총합</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.silence_total_sec }}s</div>
                     </div>
                 </div>
@@ -141,27 +114,39 @@
                 <div class="card-header header-length"><span>명료성</span></div>
                 <div class="metrics-grid">
                     <div class="metric-box">
-                        <div class="metric-label">STT 정확도</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="stt_accuracy">STT 정확도</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.stt_accuracy }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">평균 STT 신뢰도</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="avg_stt_confidence">평균 STT 신뢰도</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.avg_stt_confidence }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">발음 분명도(proxy)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="pronunciation_clarity">발음 분명도(proxy)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.pronunciation_clarity }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">조음 비율(proxy)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="articulation_ratio">조음 비율(proxy)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.articulation_ratio }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">음량 안정성(proxy)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="volume_stability">음량 안정성(proxy)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.volume_stability }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">클리핑 비율(proxy)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="clipping_ratio">클리핑 비율(proxy)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.clipping_ratio }}</div>
                     </div>
                 </div>
@@ -173,27 +158,39 @@
                 <div class="card-header header-structure"><span>발화 구조</span></div>
                 <div class="metrics-grid">
                     <div class="metric-box">
-                        <div class="metric-label">문장 길이 분포(표준편차)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_length_distribution">문장 길이 분포(표준편차)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.sentence_len_std }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">의미 단위 분절(문장 수)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="discourse_segmentation">의미 단위 분절(문장 수)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.sentence_count }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">불완전 의미 단위 비율</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="incomplete_unit_ratio">불완전 의미 단위 비율</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.repetition_ratio }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">연결어 사용 밀도</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="connective_usage">연결어 사용 밀도</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.connective_density }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">문장 수</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_count">문장 수</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.sentence_count }}</div>
                     </div>
                     <div class="metric-box">
-                        <div class="metric-label">문장당 의미 단위(평균 길이)</div>
+                        <div class="metric-label-row">
+                            <button type="button" class="help-text-trigger metric-label" data-help-key="units_per_sentence">문장당 의미 단위(평균 길이)</button>
+                        </div>
                         <div class="metric-value">{{ score.metrics.avg_sentence_len }}</div>
                     </div>
                 </div>
@@ -203,11 +200,11 @@
                 <div class="card-header header-length"><span>답변 길이 평가</span></div>
                 <div class="length-status-box">
                     {% if score.metrics.length_adequacy_score >= 70 %}
-                    <div class="status-text">적정 범위</div>
+                    <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">적정 범위</button>
                     {% elif score.metrics.length_adequacy_score >= 40 %}
-                    <div class="status-text">다소 짧거나 김</div>
+                    <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">다소 짧거나 김</button>
                     {% else %}
-                    <div class="status-text">범위 이탈</div>
+                    <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">범위 이탈</button>
                     {% endif %}
                 </div>
                 <ul class="length-detail-list">
@@ -218,7 +215,7 @@
                         <span class="ld-label">답변 길이</span><span class="ld-value">{{ score.metrics.duration_sec }}초</span>
                     </li>
                     <li class="length-detail-item">
-                        <span class="ld-label">문장 평균 길이</span><span class="ld-value">{{ score.metrics.avg_sentence_len }}</span>
+                        <button type="button" class="help-text-trigger ld-label" data-help-key="avg_sentence_length">문장 평균 길이</button><span class="ld-value">{{ score.metrics.avg_sentence_len }}</span>
                     </li>
                 </ul>
             </div>
@@ -244,8 +241,33 @@
         <a href="#" class="back-link" onclick="scrollToTop(); return false;">맨 위로 이동</a>
     </div>
 </div>
+
+<div id="metricHelpModal" class="help-modal hidden" aria-hidden="true">
+    <div class="help-modal-overlay" data-help-close></div>
+    <div class="help-modal-card" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+        <button type="button" class="help-modal-close" data-help-close aria-label="도움말 닫기">×</button>
+        <h3 id="helpModalTitle" class="help-modal-title"></h3>
+
+        <div class="help-block">
+            <h4>의미</h4>
+            <p id="helpModalMeaning"></p>
+        </div>
+        <div class="help-block">
+            <h4>해석 기준</h4>
+            <ul id="helpModalCriteria"></ul>
+        </div>
+        <div class="help-block">
+            <h4>평가 관점</h4>
+            <p id="helpModalEvaluation"></p>
+        </div>
+        <div class="help-block">
+            <h4>집계 방식</h4>
+            <p id="helpModalAggregation"></p>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/result/analysis_stt.js?v=20260306"></script>
+<script src="/static/js/result/analysis_stt.js?v=20260312"></script>
 {% endblock %}

@@ -3,7 +3,7 @@
 {% block title %}텍스트 보기 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/result/text.css">
+<link rel="stylesheet" href="/static/css/result/text.css?v=20260313">
 {% endblock %}
 
 {% block content %}
@@ -37,11 +37,17 @@
             </div>
         </div>
 
+        <div class="next-btn-area">
+            <button class="next-btn" onclick="location.href='/interviews/{{ session_id }}/results/{{ sel_id }}/stt'">
+                답변분석 보기
+            </button>
+        </div>
+
         <a href="/interviews/{{ session_id }}/results" class="back-link">← 목록으로</a>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/result/text.js"></script>
+<script src="/static/js/result/text.js?v=20260312"></script>
 {% endblock %}

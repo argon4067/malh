@@ -50,8 +50,10 @@
 {% block scripts %}
 <script>
     window.INTERVIEW_CONTEXT = {
-        sessionId: {{ session_id }}
+        sessionId: {{ session_id }},
+        totalQuestions: {{ total_questions }},
+        recordedQuestions: {{ recorded_questions }}
     };
 </script>
-<script src="/static/js/interview/question.js"></script>
+<script src="/static/js/interview/question.js?v=20260308"></script>
 {% endblock %}
