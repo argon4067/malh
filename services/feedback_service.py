@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# 프로젝트 구조에 맞게 임포트 경로 확인 필요
+# 프로젝트 설정 및 모델 임포트
 from core.database import get_db
 from models.resume import Resume
 from models.resume_keyword import ResumeKeyword
@@ -25,7 +25,7 @@ from services.prompt.feedback.analyze_feedback_prompt import (
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-# ✅ 1. Jinja2Templates 경로 설정 확인 (templates 폴더가 루트에 있다면 "templates")
+# ✅ 템플릿 설정 (경로가 app/templates라면 "app/templates"로 수정)
 templates = Jinja2Templates(directory="templates")
 
 router = APIRouter()
@@ -37,7 +37,9 @@ def get_client() -> OpenAI:
         raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
     return OpenAI(api_key=api_key)
 
-# --- 내부 로직 함수 (생략 없이 순서대로 배치) ---
+# -----------------------------------------------------
+# 내부 로직 함수 (순서: 호출되는 함수를 위로)
+# -----------------------------------------------------
 
 def crawl_company_url(url: str) -> str:
     try:
@@ -97,21 +99,25 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
 
     return generate_feedback_llm(resume_keywords_json, company_info_json, required_stack)
 
-# --- 라우터 엔드포인트 ---
+# -----------------------------------------------------
+# 라우터 엔드포인트
+# -----------------------------------------------------
 
-# ✅ GET /feedback (페이지 접속)
 @router.get("/feedback")
 async def feedback_page(request: Request, db: Session = Depends(get_db)):
     try:
-        # DB에서 이력서 목록을 가져올 때 Resume 모델이 정확히 임포트되었는지 확인하세요.
         resumes = db.query(Resume).all()
-        return templates.TemplateResponse("resume/feedback.html", {"request": request, "resumes": resumes})
+        # ✅ 이력서 존재 여부 체크
+        has_resumes = len(resumes) > 0
+        return templates.TemplateResponse("/resume/feedback.html", {
+            "request": request, 
+            "resumes": resumes,
+            "has_resumes": has_resumes
+        })
     except Exception as e:
         logger.error(f"GET Feedback Page Error: {e}")
-        # 500 에러 발생 시 로그를 남기고 상세 메시지 반환
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ POST /feedback (분석 실행)
 @router.post("/feedback")
 async def analyze_feedback_api(payload: dict, db: Session = Depends(get_db)):
     resume_id = payload.get("resume_id")
@@ -119,6 +125,6 @@ async def analyze_feedback_api(payload: dict, db: Session = Depends(get_db)):
     required_stack = payload.get("companyStack")
 
     if not all([resume_id, company_url, required_stack]):
-        raise HTTPException(status_code=400, detail="필수 정보가 누락되었습니다.")
+        raise HTTPException(status_code=400, detail="모든 정보를 입력해주세요.")
 
     return get_resume_feedback(db, int(resume_id), company_url, required_stack)

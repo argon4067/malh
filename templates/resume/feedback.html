@@ -26,8 +26,6 @@
                                 {% endif %}
                             </option>
                         {% endfor %}
-                    {% else %}
-                        <option value="" disabled>등록된 이력서가 없습니다.</option>
                     {% endif %}
                 </select>
             </div>
@@ -39,7 +37,7 @@
 
             <div class="form-group">
                 <label for="companyStack">회사 요구 기술 스택</label>
-                <input type="text" id="companyStack" placeholder="예: 비즈니스영어, 영어, Java, Spring Boot">
+                <input type="text" id="companyStack" placeholder="예: Java, Python, SQL">
             </div>
 
             <button type="button" class="analyze-btn" onclick="startAnalysis()">분석 시작하기</button>
@@ -48,28 +46,22 @@
         <div id="loadingArea" class="content-card" style="display: none;">
             <div class="loading-container">
                 <div class="spinner"></div>
-                <h3>AI가 채용 정보를 크롤링하여 분석 중입니다...</h3>
-                <p>잠시만 기다려 주세요 (약 2~5초 소요)</p>
+                <h3>AI가 분석 중입니다...</h3>
             </div>
         </div>
 
         <div id="resultArea" class="content-card" style="display: none;">
             <h2 class="section-title">분석 결과 리포트</h2>
-            
             <div class="analysis-result">
                 <div class="feedback-box good">
                     <h4>✅ 강점 및 적합 포인트</h4>
-                    <div id="strengthsContent">
-                        </div>
+                    <div id="strengthsContent"></div>
                 </div>
-
                 <div class="feedback-box bad">
                     <h4>⚠️ 보완 권장 사항</h4>
-                    <div id="improvementsContent">
-                        </div>
+                    <div id="improvementsContent"></div>
                 </div>
             </div>
-
             <div class="btn-group">
                 <button class="btn btn-retry" onclick="location.reload()">다시 분석하기</button>
             </div>
@@ -80,14 +72,16 @@
 
 {% block scripts %}
 <script src="/static/js/resume/recommend.js"></script>
-
-{% if not resumes %}
 <script>
-    // 이력서가 없을 경우 알림 후 이동
-    setTimeout(function() {
-        alert("분석할 이력서가 없습니다. 이력서를 먼저 등록해주세요.");
-        window.location.replace("/resumes"); 
-    }, 100);
+    // ✅ 서버에서 보낸 has_resumes 변수 확인
+    const hasResumes = {{ 'true' if has_resumes else 'false' }};
+
+    // 페이지 로드 시 체크
+    window.addEventListener('DOMContentLoaded', (event) => {
+        if (!hasResumes) {
+            alert("등록된 이력서가 없습니다. 이력서를 먼저 등록해 주십시오.");
+            window.location.href = "/resumes";
+        }
+    });
 </script>
-{% endif %}
 {% endblock %}
