@@ -14,3 +14,5 @@ openai
 passlib
 faster-whisper
 cryptography
+beautifulsoup4
+requests

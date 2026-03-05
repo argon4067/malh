@@ -19,6 +19,7 @@ class EvidenceItem(BaseModel):
 
 
 class ResumeClassificationResult(BaseModel):
+    is_resume: bool
     job_family: JobFamily
     job_role: Optional[str] = Field(default=None, description="예: 백엔드 개발자")
     evidence: List[EvidenceItem] = Field(default_factory=list)
