@@ -50,23 +50,12 @@
                     <button type="button" class="view-btn" onclick="openModal('privacy')">보기</button>
                 </div>
             </div>
-
-            <div class="term-item">
-                <div class="term-title-row">
-                    <label>
-                        <input type="checkbox">
-                        <span class="check-text">[선택] 마케팅 정보 수신 동의</span>
-                    </label>
-                    <button type="button" class="view-btn" onclick="openModal('marketing')">보기</button>
-                </div>
-            </div>
         </div>
 
         <button type="button" class="next-btn" id="nextBtn" disabled onclick="goToNextStep()">다음 단계로 이동</button>
     </div>
 </div>
 
-<!-- Modal -->
 <div id="termsModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -82,5 +71,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="/static/js/auth/agree.js"></script>
 {% endblock %}
