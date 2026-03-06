@@ -31,7 +31,6 @@
 .hero-image {
     width: 45%; max-width: 500px; height: 400px; background-color: #ddd;
     border-radius: 20px; box-shadow: var(--shadow-md);
-    background-image: url('https://images.stockcake.com/public/5/d/d/5dd556c6-06b1-4ec2-9d4f-96ea01cac0a1_large/cyberpunk-job-interview-stockcake.jpg');
     background-size: cover; background-position: center;
 }
 
