@@ -1630,7 +1630,9 @@ async def refine_transcript(
         db.query(
             SelectQuestion.sel_id.label("sel_id"),
             Transcript.transcript_text.label("transcript_text"),
+            Question.qust_question_text.label("question_text"),
         )
+        .join(Question, Question.qust_id == SelectQuestion.qust_id)
         .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
         .filter(SelectQuestion.inter_id == inter_id, SelectQuestion.sel_id == sel_id)
         .first()
@@ -1647,7 +1649,10 @@ async def refine_transcript(
         )
 
     try:
-        result = refine_transcript_with_guardrails(row.transcript_text)
+        result = refine_transcript_with_guardrails(
+            row.transcript_text,
+            question_text=row.question_text,
+        )
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
