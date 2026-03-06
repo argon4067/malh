@@ -1728,3 +1728,10 @@ async def get_transcript_payload(
             "llm_model": row.llm_model,
         },
     }
+
+@web_router.get("/result/analysis/text")
+async def analysis_text(request: Request, session_id: int):
+    return templates.TemplateResponse(
+        "result/analysis_text.html",
+        {"request": request, "session_id": session_id},
+    )
