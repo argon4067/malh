@@ -70,16 +70,17 @@ $(function () {
     });
 
     // 실제 업로드 처리
-    function handleFileUpload(file) {
+    async function handleFileUpload(file) {
         const formData = new FormData();
         formData.append('model', model);
         formData.append('file', file);
 
-        fetch('/resumes', {
-            method: 'POST',
-            body: formData
-        })
-        .then(async (response) => {
+        try {
+            const response = await fetch('/resumes', {
+                method: 'POST',
+                body: formData
+            });
+
             const result = await response.json();
 
             if (!response.ok) {
@@ -87,12 +88,12 @@ $(function () {
                 return;
             }
 
-            // 업로드 성공 -> wait 페이지 이동
             location.href = `/resumes/${result.resume_id}/wait?model=${encodeURIComponent(result.model)}`;
-        })
-        .catch((error) => {
+        } catch (error) {
             console.error(error);
             alert('업로드 중 오류가 발생했습니다.');
-        });
+        } finally {
+            $fileInput.val('');
+        }
     }
 });
