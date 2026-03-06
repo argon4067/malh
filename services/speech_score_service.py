@@ -181,19 +181,19 @@ def calculate_speech_scores(
     speed_variation = sentence_len_std
 
     # Fluency axis.
-    pace_score = _target_band_score(wpm, low=95.0, high=165.0, hard_low=45.0, hard_high=240.0)
-    filler_score = _clamp(100.0 - filler_event_ratio * 100.0, 0.0, 100.0)
-    repetition_score = _clamp(100.0 - repetition_ratio * 500.0, 0.0, 100.0)
-    fluency_score = round(pace_score * 0.5 + filler_score * 0.25 + repetition_score * 0.25, 1)
+    pace_score = _target_band_score(wpm, low=105.0, high=150.0, hard_low=60.0, hard_high=210.0)
+    filler_score = _clamp(100.0 - filler_event_ratio * 125.0, 0.0, 100.0)
+    repetition_score = _clamp(100.0 - repetition_ratio * 650.0, 0.0, 100.0)
+    fluency_score = round(pace_score * 0.45 + filler_score * 0.3 + repetition_score * 0.25, 1)
 
     # Transcript-quality axis (legacy-named clarity for compatibility).
     transcript_cleanliness = _quality_ratio(clean_text)
     transcription_consistency = _clamp(
-        0.65 + transcript_cleanliness * 0.35 - filler_event_ratio * 0.12 - repetition_ratio * 0.10,
+        0.62 + transcript_cleanliness * 0.35 - filler_event_ratio * 0.18 - repetition_ratio * 0.14,
         0.0,
         1.0,
     )
-    clarity_score = round((transcription_consistency * 100.0) * 0.7 + (transcript_cleanliness * 100.0) * 0.3, 1)
+    clarity_score = round((transcription_consistency * 100.0) * 0.75 + (transcript_cleanliness * 100.0) * 0.25, 1)
 
     # Legacy-facing keys kept for template/API compatibility only.
     stt_accuracy = transcription_consistency
@@ -204,19 +204,19 @@ def calculate_speech_scores(
     clipping_ratio = _clamp((1.0 - transcript_cleanliness) * 0.02, 0.0, 0.02)
 
     # Structure axis.
-    sentence_len_score = _target_band_score(avg_sentence_len, low=8.0, high=24.0, hard_low=3.0, hard_high=40.0)
-    variation_score = _target_band_score(sentence_len_std, low=2.0, high=9.0, hard_low=0.0, hard_high=18.0)
-    connective_score = _target_band_score(connective_density, low=0.25, high=1.25, hard_low=0.0, hard_high=2.5)
+    sentence_len_score = _target_band_score(avg_sentence_len, low=10.0, high=20.0, hard_low=5.0, hard_high=34.0)
+    variation_score = _target_band_score(sentence_len_std, low=3.0, high=7.0, hard_low=0.5, hard_high=14.0)
+    connective_score = _target_band_score(connective_density, low=0.35, high=1.0, hard_low=0.1, hard_high=2.0)
     structure_score = round(sentence_len_score * 0.45 + variation_score * 0.3 + connective_score * 0.25, 1)
 
     # Length axis (no sentence_len_score reuse to reduce duplicated effects).
-    length_adequacy_score = _target_band_score(float(duration), low=60.0, high=120.0, hard_low=20.0, hard_high=240.0)
-    word_count_score = _target_band_score(float(word_count), low=25.0, high=220.0, hard_low=5.0, hard_high=420.0)
-    length_score = round(length_adequacy_score * 0.7 + word_count_score * 0.3, 1)
+    length_adequacy_score = _target_band_score(float(duration), low=70.0, high=110.0, hard_low=30.0, hard_high=180.0)
+    word_count_score = _target_band_score(float(word_count), low=40.0, high=180.0, hard_low=10.0, hard_high=320.0)
+    length_score = round(length_adequacy_score * 0.75 + word_count_score * 0.25, 1)
 
     # Content axis: keep relevance but avoid rewarding vocabulary size alone.
     numeric_density = len(re.findall(r"\d+", clean_text)) / max(1, discourse_unit_count)
-    detail_score = _target_band_score(numeric_density, low=0.2, high=2.0, hard_low=0.0, hard_high=4.0)
+    detail_score = _target_band_score(numeric_density, low=0.3, high=1.4, hard_low=0.05, hard_high=3.0)
     if question_topic_tokens:
         # Blend question-coverage and response-focus to reduce overlap-only bias.
         response_focus = len(response_topic_tokens.intersection(question_topic_tokens)) / max(
@@ -227,15 +227,15 @@ def calculate_speech_scores(
     else:
         response_focus = 0.0
         relevance_score = 50.0
-    topic_coverage = _target_band_score(float(len(response_topic_tokens)), low=6.0, high=28.0, hard_low=2.0, hard_high=60.0)
+    topic_coverage = _target_band_score(float(len(response_topic_tokens)), low=8.0, high=22.0, hard_low=3.0, hard_high=45.0)
     gated_topic_coverage = topic_coverage * (0.5 + 0.5 * topic_overlap)
-    content_score = round(relevance_score * 0.30 + connective_score * 0.30 + detail_score * 0.25 + gated_topic_coverage * 0.15, 1)
+    content_score = round(relevance_score * 0.35 + connective_score * 0.25 + detail_score * 0.25 + gated_topic_coverage * 0.15, 1)
 
     delivery_score = round(fluency_score * 0.5 + clarity_score * 0.5, 1)
     confidence_score = round(
         _clamp(
-            transcript_cleanliness * 100.0 * 0.45
-            + transcription_consistency * 100.0 * 0.35
+            transcript_cleanliness * 100.0 * 0.42
+            + transcription_consistency * 100.0 * 0.38
             + word_count_score * 0.20,
             0.0,
             100.0,

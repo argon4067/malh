@@ -146,6 +146,34 @@ def _update_submit_progress(inter_id: int, **fields: object) -> None:
         SUBMIT_ANALYSIS_PROGRESS[inter_id] = base
 
 
+def _build_effective_transcript_for_evaluation(
+    db: Session,
+    inter_id: int,
+    sel_id: int,
+    question_text: str | None,
+    transcript_text: str,
+) -> str:
+    raw = (transcript_text or "").strip()
+    if not raw:
+        return ""
+    try:
+        refine_result = refine_transcript_with_guardrails(
+            raw,
+            question_text=question_text or "",
+        )
+        upsert_refine_result(db=db, sel_id=sel_id, result=refine_result)
+        if refine_result.status == "APPLIED" and (refine_result.refined_text or "").strip():
+            return str(refine_result.refined_text).strip()
+    except Exception as exc:
+        logger.warning(
+            "TRANSCRIPT_REFINE_FAILED inter_id=%s sel_id=%s error=%s",
+            inter_id,
+            sel_id,
+            exc,
+        )
+    return raw
+
+
 def _run_submit_analysis_job(inter_id: int) -> None:
     db = SessionLocal()
     try:
@@ -260,6 +288,14 @@ def _run_submit_analysis_job(inter_id: int) -> None:
                 continue
 
             _update_submit_progress(inter_id, message=f"Q{sel_order_no} 발화 지표 계산 중...")
+            _ = _build_effective_transcript_for_evaluation(
+                db=db,
+                inter_id=inter_id,
+                sel_id=sel_id,
+                question_text=row.question_text,
+                transcript_text=transcript_text,
+            )
+
             score_payload = calculate_speech_scores(
                 transcript_text=transcript_text,
                 duration_sec=int(row.duration_sec or 0),
@@ -1396,6 +1432,14 @@ async def submit_interview_analysis(
                 }
             )
             continue
+
+        _ = _build_effective_transcript_for_evaluation(
+            db=db,
+            inter_id=inter_id,
+            sel_id=int(row.sel_id),
+            question_text=row.question_text,
+            transcript_text=transcript_text,
+        )
 
         score_payload = calculate_speech_scores(
             transcript_text=transcript_text,

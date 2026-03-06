@@ -1,4 +1,4 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
 {% block title %}분석 결과 - 말해뭐해{% endblock %}
 
@@ -11,7 +11,7 @@
     <div class="container">
         <div class="page-header">
             <h2 class="page-title">분석 결과</h2>
-            <p class="page-desc">질문별 녹음 길이와 텍스트/답변 분석 결과를 확인할 수 있습니다.</p>
+            <p class="page-desc">질문별 녹음 길이와 텍스트·답변 분석 결과를 확인할 수 있습니다.</p>
         </div>
 
         <div class="result-list">
@@ -36,11 +36,15 @@
                 <div class="result-card">
                     <div class="card-info">
                         <span class="question-badge">-</span>
-                        <div class="question-title">아직 분석할 답변이 없습니다.</div>
+                        <div class="question-title">아직 분석된 답변이 없습니다.</div>
                         <div class="answer-meta">먼저 답변을 녹음한 뒤 다시 시도해 주세요.</div>
                     </div>
                 </div>
             {% endif %}
+        </div>
+
+        <div class="next-btn-area">
+            <a href="/result/analysis/text?session_id={{ session_id }}" class="btn-analysis">텍스트 종합 분석 보기</a>
         </div>
     </div>
 </div>

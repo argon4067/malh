@@ -12,8 +12,8 @@ from models.transcript_refine import TranscriptRefine
 from sqlalchemy.orm import Session
 
 
-MIN_CONFIDENCE = 0.35
-UNCERTAIN_CONFIDENCE_FLOOR = 0.55
+MIN_CONFIDENCE = 0.0
+UNCERTAIN_CONFIDENCE_FLOOR = 0.0
 
 
 @dataclass
@@ -156,25 +156,8 @@ def refine_transcript_with_guardrails(raw_text: str, question_text: str | None =
             llm_model=model,
         )
 
-    if _extract_numbers(text) != _extract_numbers(reconstructed):
-        return RefineResult(
-            raw_text=text,
-            refined_text=text,
-            edit_log={
-                "mode": "semantic_reconstruction_v2",
-                "question_text": question_text,
-                "answer_relevance_summary": relevance_summary,
-                "key_points": key_points,
-                "uncertain": uncertain,
-            },
-            confidence=int(conf * 100),
-            changed_ratio=_changed_ratio(text, reconstructed),
-            status="REJECTED",
-            reject_reason="Numeric tokens changed.",
-            llm_model=model,
-        )
-
     ratio = _changed_ratio(text, reconstructed)
+    numeric_mismatch = _extract_numbers(text) != _extract_numbers(reconstructed)
 
     if conf < MIN_CONFIDENCE:
         return RefineResult(
@@ -221,6 +204,7 @@ def refine_transcript_with_guardrails(raw_text: str, question_text: str | None =
             "answer_relevance_summary": relevance_summary,
             "key_points": key_points,
             "uncertain": uncertain,
+            "numeric_mismatch": numeric_mismatch,
         },
         confidence=int(conf * 100),
         changed_ratio=ratio,
