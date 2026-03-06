@@ -56,7 +56,10 @@ def crawl_company_url(url: str) -> str:
         return ""
 
 def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> str:
-    if not crawled_text: return json.dumps({"vision": "", "core_values": [], "ideal_candidates": []})
+    # 텍스트가 없어도 AI가 판단할 수 있도록 기본 구조를 반환합니다.
+    if not crawled_text or not crawled_text.strip():
+        return json.dumps({"vision": "정보 없음", "core_values": [], "ideal_candidates": []})
+    
     client = get_client()
     try:
         response = client.chat.completions.create(
@@ -68,9 +71,11 @@ def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> s
             response_format={"type": "json_object"}
         )
         return response.choices[0].message.content
-    except Exception as e:
-        return json.dumps({"vision": "", "core_values": [], "ideal_candidates": []})
+    except Exception:
+        # 에러 발생 시에도 빈 구조를 반환하여 분석이 끊기지 않게 합니다.
+        return json.dumps({"vision": "추출 실패", "core_values": [], "ideal_candidates": []})
 
+# feedback_service.py 내 관련 함수만 발췌
 def generate_feedback_llm(resume_keywords_json: str, company_info_json: str, required_stack: str, model: str = DEFAULT_MODEL) -> dict:
     client = get_client()
     try:
@@ -80,11 +85,11 @@ def generate_feedback_llm(resume_keywords_json: str, company_info_json: str, req
                 {"role": "system", "content": ANALYZE_FEEDBACK_SYSTEM_PROMPT},
                 {"role": "user", "content": build_analyze_feedback_user_prompt(resume_keywords_json, company_info_json, required_stack)},
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"} # JSON 모드 강제
         )
         return json.loads(response.choices[0].message.content)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"분석 실패: {e}")
 
 def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_stack: str) -> dict:
     keywords = db.query(ResumeKeyword).filter(ResumeKeyword.resume_id == resume_id).all()

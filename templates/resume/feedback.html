@@ -4,6 +4,9 @@
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/resume/recommend.css">
+<style>
+    .compatibility-warning { display: none; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.95em; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -11,60 +14,49 @@
     <div class="container">
         <div id="inputForm" class="content-card">
             <h2 class="section-title">직무 맞춤형 이력서 분석</h2>
-            <p class="section-desc">지원하려는 회사의 채용 공고를 입력하면 AI가 이력서를 분석해 드립니다.</p>
-
             <div class="form-group">
-                <label for="resumeSelect">분석할 이력서 선택</label>
+                <label for="resumeSelect">이력서 선택</label>
                 <select id="resumeSelect">
                     <option value="">이력서를 선택하세요</option>
-                    {% if resumes %}
-                        {% for resume in resumes %}
-                            <option value="{{ resume.resume_id }}">
-                                {{ resume.resume_file_name }}
-                                {% if resume.resume_created_at %}
-                                    ({{ resume.resume_created_at.strftime('%Y-%m-%d') }})
-                                {% endif %}
-                            </option>
-                        {% endfor %}
-                    {% endif %}
+                    {% if resumes %}{% for resume in resumes %}
+                    <option value="{{ resume.resume_id }}">{{ resume.resume_file_name }}</option>
+                    {% endfor %}{% endif %}
                 </select>
             </div>
-
             <div class="form-group">
                 <label for="companyUrl">회사 URL</label>
-                <input type="text" id="companyUrl" placeholder="예: https://www.jype.com/ko">
+                <input type="text" id="companyUrl" placeholder="https://www.hightechmember.com/...">
             </div>
-
             <div class="form-group">
-                <label for="companyStack">회사 요구 기술 스택</label>
-                <input type="text" id="companyStack" placeholder="예: Java, Python, SQL">
+                <label for="companyStack">요구 기술 스택</label>
+                <input type="text" id="companyStack" placeholder="Java, React 등">
             </div>
-
             <button type="button" class="analyze-btn" onclick="startAnalysis()">분석 시작하기</button>
         </div>
 
         <div id="loadingArea" class="content-card" style="display: none;">
-            <div class="loading-container">
-                <div class="spinner"></div>
-                <h3>AI가 분석 중입니다...</h3>
-            </div>
+            <div class="loading-container"><div class="spinner"></div><h3>데이터 정합성 검증 및 분석 중...</h3></div>
         </div>
 
-        <div id="resultArea" class="content-card" style="display: none;">
-            <h2 class="section-title">분석 결과 리포트</h2>
-            <div class="analysis-result">
-                <div class="feedback-box good">
-                    <h4>✅ 강점 및 적합 포인트</h4>
-                    <div id="strengthsContent"></div>
-                </div>
-                <div class="feedback-box bad">
-                    <h4>⚠️ 보완 권장 사항</h4>
-                    <div id="improvementsContent"></div>
-                </div>
-            </div>
-            <div class="btn-group">
-                <button class="btn btn-retry" onclick="location.reload()">다시 분석하기</button>
-            </div>
+<div id="resultArea" class="content-card" style="display: none;">
+    <h2 class="section-title">분석 결과 리포트</h2>
+    
+    <div id="compatibilityWarning" style="display:none; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ddd;">
+        <p id="warningText" style="margin:0; font-weight:bold;"></p>
+    </div>
+
+    <div class="analysis-result">
+        <div class="feedback-box good">
+            <h4>✅ 강점 및 적합 포인트</h4>
+            <div id="strengthsContent"></div>
+        </div>
+        <div class="feedback-box bad">
+            <h4>⚠️ 보완 권장 사항</h4>
+            <div id="improvementsContent"></div>
+        </div>
+    </div>
+    
+            <div class="btn-group"><button class="btn btn-retry" onclick="location.reload()">다시 분석하기</button></div>
         </div>
     </div>
 </div>
@@ -72,14 +64,12 @@
 
 {% block scripts %}
 <script src="/static/js/resume/recommend.js"></script>
-<script>
-    // ✅ 서버에서 보낸 has_resumes 변수 확인
-    const hasResumes = {{ 'true' if has_resumes else 'false' }};
 
-    // 페이지 로드 시 체크
-    window.addEventListener('DOMContentLoaded', (event) => {
+<script>
+    const hasResumes = {{ 'true' if has_resumes else 'false' }};
+    window.addEventListener('DOMContentLoaded', () => {
         if (!hasResumes) {
-            alert("등록된 이력서가 없습니다. 이력서를 먼저 등록해 주십시오.");
+            alert("등록된 이력서가 없습니다.");
             window.location.href = "/resumes";
         }
     });
