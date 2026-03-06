@@ -27,6 +27,7 @@ import models.transcript
 import models.transcript_refine
 import models.user
 from web.router import web_router
+from core.logging import setup_logging
 
 from services.member_service import router as member_router
 # ✅ 피드백 라우터 추가 (파일을 services 폴더에 생성했다고 가정)
@@ -39,6 +40,8 @@ BASE_DIR = Path(__file__).resolve().parent  # .../app
 
 # ✅ 템플릿 디렉토리 설정 (templates 폴더가 app/templates에 있다고 가정)
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+setup_logging()
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Mock Interview AI", version="0.1.0")

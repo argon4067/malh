@@ -22,7 +22,7 @@
                         업로드일 정보 없음
                     {% endif %}
                     {% if resume.resume_file_size %}
-                        | {{ (resume.resume_file_size / 1024 / 1024) | round(1) }}MB
+                        | {{ (resume.resume_file_size / 1024 / 1024) | round(2) }}MB
                     {% endif %}
                     | {{ resume.resume_file_type }}
                 </div>
