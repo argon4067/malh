@@ -1,0 +1,94 @@
+﻿.how-hero {
+    background: linear-gradient(135deg, var(--primary-navy) 0%, var(--primary-navy-dark) 100%);
+    color: var(--white);
+    padding: 96px 24px 84px;
+}
+
+.how-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.kicker {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.72);
+    margin-bottom: 14px;
+}
+
+.how-hero h1 {
+    font-size: 42px;
+    line-height: 1.25;
+    margin-bottom: 14px;
+}
+
+.how-hero p {
+    font-size: 17px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.how-section {
+    padding: 68px 24px;
+}
+
+.how-section.alt {
+    background: var(--bg-light);
+}
+
+.step-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.step-card {
+    background: var(--white);
+    border: 1px solid #e8ecf1;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: var(--shadow-sm);
+}
+
+.step-card span {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--primary-orange);
+    letter-spacing: 0.04em;
+}
+
+.step-card h3 {
+    font-size: 21px;
+    margin: 8px 0;
+    color: var(--primary-navy);
+}
+
+.step-card p {
+    color: var(--text-sub);
+    line-height: 1.7;
+}
+
+.how-section h2 {
+    font-size: 30px;
+    color: var(--primary-navy);
+    margin-bottom: 20px;
+}
+
+.cta {
+    display: inline-block;
+    background: var(--primary-orange);
+    color: var(--white);
+    padding: 13px 24px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+@media (max-width: 992px) {
+    .how-hero h1 {
+        font-size: 32px;
+    }
+
+    .step-grid {
+        grid-template-columns: 1fr;
+    }
+}

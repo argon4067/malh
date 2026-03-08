@@ -1,24 +1,23 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
 {% block title %}예상 질문 생성 중 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/interview/question_wait.css">
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
 {% endblock %}
 
 {% block content %}
-<div class="wait-container-wrapper">
-    <div class="wait-container">
-        <div class="thinking-icon">💬</div>
-        
-        <h2 class="status-text">예상 질문 생성 중입니다...</h2>
-        <p class="sub-text">이력서를 심층 분석하여 맞춤형 질문을 만들고 있습니다.</p>
-
-        <div class="progress-wrapper">
-            <div class="progress-bar" id="progressBar"></div>
+<div class="submit-loading-wrapper">
+    <div class="loading-card">
+        <h2 class="loading-title">예상 질문 생성 중입니다</h2>
+        <p class="loading-desc">이력서를 분석해 맞춤 질문을 생성하고 있습니다.</p>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressBar"></div>
         </div>
-        
-        <div class="percentage" id="percentageText">0%</div>
+        <div class="progress-meta">
+            <span id="percentageText">0%</span>
+            <span>&nbsp;</span>
+        </div>
     </div>
 </div>
 {% endblock %}

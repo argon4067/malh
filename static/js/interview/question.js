@@ -7,8 +7,12 @@ const sessionId = Number(interviewContext.sessionId || 0);
 const totalQuestionsFromContext = Number(interviewContext.totalQuestions || 0);
 const recordedQuestionsFromContext = Number(interviewContext.recordedQuestions || 0);
 
-function goToDetail(selId) {
+function goToDetail(selId, isRecorded = false) {
     if (!sessionId || !selId) {
+        return;
+    }
+    if (isRecorded) {
+        alert("이미 답변 완료된 질문입니다");
         return;
     }
     location.href = `/interviews/${sessionId}/questions/${selId}`;

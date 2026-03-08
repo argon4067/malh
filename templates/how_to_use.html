@@ -1,0 +1,60 @@
+﻿{% extends "layouts/base.html" %}
+
+{% block title %}이용 방법 - 말해뭐해{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/how_to_use.css">
+{% endblock %}
+
+{% block content %}
+<section class="how-hero">
+    <div class="how-shell">
+        <p class="kicker">HOW TO USE</p>
+        <h1>5단계로 끝내는 면접 준비 루프</h1>
+        <p>처음 사용자도 바로 따라할 수 있도록 실제 화면 흐름 기준으로 정리했습니다.</p>
+    </div>
+</section>
+
+<section class="how-section">
+    <div class="how-shell">
+        <div class="step-grid">
+            <article class="step-card">
+                <span>STEP 1</span>
+                <h3>이력서 등록</h3>
+                <p>`이력서 관리`에서 PDF/DOCX를 업로드하고 분석을 시작합니다.</p>
+            </article>
+            <article class="step-card">
+                <span>STEP 2</span>
+                <h3>질문 생성 대기</h3>
+                <p>분석 완료 후 예상 질문 세트가 자동 생성됩니다.</p>
+            </article>
+            <article class="step-card">
+                <span>STEP 3</span>
+                <h3>질문별 답변 녹음</h3>
+                <p>질문 상세 페이지에서 제한 시간 내 답변을 녹음합니다.</p>
+            </article>
+            <article class="step-card">
+                <span>STEP 4</span>
+                <h3>답변 분석 확인</h3>
+                <p>전사/지표/코칭 피드백을 확인하고 개선 포인트를 체크합니다.</p>
+            </article>
+            <article class="step-card">
+                <span>STEP 5</span>
+                <h3>약점 보강 훈련</h3>
+                <p>약점 보강 질문으로 반복 연습해 답변 품질을 끌어올립니다.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="how-section alt">
+    <div class="how-shell">
+        <h2>빠른 시작</h2>
+        {% if request.cookies.get("login_user") %}
+        <a href="/resumes" class="cta">지금 바로 연습 시작</a>
+        {% else %}
+        <a href="/auth/login" class="cta">로그인 후 시작</a>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

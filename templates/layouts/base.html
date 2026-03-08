@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -16,9 +16,9 @@
     <nav>
         <ul>
             <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">메인</a></li>
-            <li><a href="#">서비스 소개</a></li>
-            <li><a href="#">이용 방법</a></li>
-            <li><a href="#">문의하기</a></li>
+            <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
+            <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+            <li><a href="/contact" class="{% if request.url.path == '/contact' %}active{% endif %}">문의하기</a></li>
         </ul>
     </nav>
     <div class="auth-links">
@@ -45,8 +45,8 @@
         <div class="footer-logo"><span>말해</span>뭐해</div>
         <p class="copyright">© 2026 말해뭐해. All rights reserved.</p>
         <p class="copyright"><strong>프로젝트 팀</strong> | 0to1</p>
-        <p class="copyright"><strong>Developer</strong> | 최도윤, 최용운, 이하랑 </p>
-        <p class="copyright"><strong>주소</strong> | 서울 강남구 테헤란로26길 12</p>
+        <p class="copyright"><strong>Developer</strong> | 0to1 Team</p>
+        <p class="copyright"><strong>주소</strong> | 서울 강남구 테헤란로 6길 12</p>
         <p class="copyright"><strong>전화문의</strong> | 1588-0000  <strong>이메일</strong> | help@interview.or.kr</p>
     </div>
   </footer>

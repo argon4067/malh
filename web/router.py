@@ -17,12 +17,14 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from core.database import SessionLocal, get_db
+from core.config import settings
 from models.user import User
 from models.audio_recording import AudioRecording
 from models.interview_session import InterviewSession
 from models.question import Question
 from models.resume import Resume
 from models.select_question import SelectQuestion
+from models.contact_inquiry import ContactInquiry
 from models.transcript import Transcript
 from models.transcript_refine import TranscriptRefine
 from fastapi.responses import RedirectResponse
@@ -137,6 +139,28 @@ def _get_latest_session_id_by_resume(db: Session, resume_id: int) -> int | None:
         .first()
     )
     return int(row.inter_id) if row else None
+
+
+def _purge_session_audio_files(db: Session, inter_id: int) -> int:
+    rows = db.query(AudioRecording).filter(AudioRecording.inter_id == inter_id).all()
+    removed = 0
+    for row in rows:
+        rel = (row.file_path or "").strip()
+        if rel:
+            abs_path = Path(settings.STORAGE_DIR) / rel
+            try:
+                if abs_path.exists():
+                    abs_path.unlink()
+                    removed += 1
+            except Exception:
+                # Keep idempotent behavior; ignore per-file delete errors.
+                pass
+        # Keep DB row for compatibility, but clear physical-path metadata.
+        row.file_path = ""
+        row.mime_type = None
+        row.size_bytes = None
+    db.commit()
+    return removed
 
 
 def _update_submit_progress(inter_id: int, **fields: object) -> None:
@@ -409,6 +433,65 @@ def _run_resume_pipeline_background(resume_id: int, model: str) -> None:
 @web_router.get("/")
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@web_router.get("/service-intro")
+async def service_intro(request: Request):
+    return templates.TemplateResponse("service_intro.html", {"request": request})
+
+
+@web_router.get("/how-to-use")
+async def how_to_use(request: Request):
+    return templates.TemplateResponse("how_to_use.html", {"request": request})
+
+
+@web_router.get("/contact")
+async def contact(
+    request: Request,
+    submitted: int = 0,
+):
+    return templates.TemplateResponse(
+        "contact.html",
+        {
+            "request": request,
+            "submitted": submitted == 1,
+        },
+    )
+
+
+@web_router.post("/contact/inquiry")
+async def submit_contact_inquiry(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    category: str = Form(default="GENERAL"),
+    message: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    name_clean = (name or "").strip()
+    email_clean = (email or "").strip()
+    message_clean = (message or "").strip()
+    category_clean = (category or "GENERAL").strip().upper()
+
+    if not name_clean or not email_clean or not message_clean:
+        raise HTTPException(status_code=400, detail="모든 문의 항목을 입력해 주세요.")
+    if len(name_clean) > 100 or len(email_clean) > 255 or len(message_clean) > 4000:
+        raise HTTPException(status_code=400, detail="입력 가능한 길이를 초과했습니다.")
+
+    allowed_categories = {"GENERAL", "BUG", "PARTNERSHIP", "ACCOUNT"}
+    if category_clean not in allowed_categories:
+        category_clean = "GENERAL"
+
+    row = ContactInquiry(
+        ci_name=name_clean,
+        ci_email=email_clean,
+        ci_category=category_clean,
+        ci_message=message_clean,
+    )
+    db.add(row)
+    db.commit()
+
+    return RedirectResponse(url="/contact?submitted=1", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # Auth
@@ -1783,4 +1866,16 @@ async def analysis_text(request: Request, session_id: int):
     return templates.TemplateResponse(
         "result/analysis_text.html",
         {"request": request, "session_id": session_id},
+    )
+
+
+@web_router.post("/result/analysis/text/start")
+async def analysis_text_start(
+    session_id: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    _purge_session_audio_files(db=db, inter_id=session_id)
+    return RedirectResponse(
+        url=f"/result/analysis/text?session_id={session_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
     )

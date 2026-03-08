@@ -44,7 +44,14 @@
         </div>
 
         <div class="next-btn-area">
-            <a href="/result/analysis/text?session_id={{ session_id }}" class="btn-analysis">텍스트 종합 분석 보기</a>
+            <form
+                action="/result/analysis/text/start"
+                method="post"
+                onsubmit="return confirm('텍스트 종합 분석으로 이동하면 저장된 음성 파일이 삭제됩니다. 계속할까요?');"
+            >
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <button type="submit" class="btn-analysis">텍스트 종합 분석 보기</button>
+            </form>
         </div>
     </div>
 </div>

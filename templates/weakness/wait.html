@@ -1,32 +1,23 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
 {% block title %}약점 보강 생성 중 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/weakness/weakness_wait.css">
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
 {% endblock %}
 
 {% block content %}
-<div class="wait-container-wrapper">
-    <div class="wait-container">
-        <div class="icon-wrapper">
-            <div class="ripple"></div>
-            <div class="ripple"></div>
-            <div class="target-icon">🎯</div>
+<div class="submit-loading-wrapper">
+    <div class="loading-card">
+        <h2 class="loading-title">약점 보강 질문 생성 중입니다</h2>
+        <p class="loading-desc">부족한 영역을 기준으로 맞춤 질문을 만들고 있습니다.</p>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressBar"></div>
         </div>
-        
-        <h2 class="status-title">약점 보강 질문을 생성하고 있습니다...</h2>
-        
-        <p class="status-desc">
-            이전 답변에서 분석된 부족한 부분(맥락 적합성, 구체성)을<br>
-            집중적으로 연습할 수 있는 맞춤형 질문을 준비 중입니다.
-        </p>
-
-        <div class="progress-wrapper">
-            <div class="progress-bar" id="progressBar"></div>
+        <div class="progress-meta">
+            <span id="percentageText">0%</span>
+            <span>&nbsp;</span>
         </div>
-        
-        <div class="percentage" id="percentageText">0%</div>
     </div>
 </div>
 {% endblock %}

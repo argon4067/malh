@@ -1,6 +1,6 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
-{% block title %}이력서 피드백 - 말해뭐해{% endblock %}
+{% block title %}?대젰???쇰뱶諛?- 留먰빐萸먰빐{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/resume/recommend.css">
@@ -13,33 +13,39 @@
 <div class="feedback-container-wrapper">
     <div class="container">
         <div id="inputForm" class="content-card">
-            <h2 class="section-title">직무 맞춤형 이력서 분석</h2>
+            <h2 class="section-title">吏곷Т 留욎땄???대젰??遺꾩꽍</h2>
             <div class="form-group">
-                <label for="resumeSelect">이력서 선택</label>
+                <label for="resumeSelect">?대젰???좏깮</label>
                 <select id="resumeSelect">
-                    <option value="">이력서를 선택하세요</option>
+                    <option value="">?대젰?쒕? ?좏깮?섏꽭??/option>
                     {% if resumes %}{% for resume in resumes %}
                     <option value="{{ resume.resume_id }}">{{ resume.resume_file_name }}</option>
                     {% endfor %}{% endif %}
                 </select>
             </div>
             <div class="form-group">
-                <label for="companyUrl">회사 URL</label>
+                <label for="companyUrl">?뚯궗 URL</label>
                 <input type="text" id="companyUrl" placeholder="https://www.hightechmember.com/...">
             </div>
             <div class="form-group">
-                <label for="companyStack">요구 기술 스택</label>
-                <input type="text" id="companyStack" placeholder="Java, React 등">
+                <label for="companyStack">?붽뎄 湲곗닠 ?ㅽ깮</label>
+                <input type="text" id="companyStack" placeholder="Java, React ??>
             </div>
-            <button type="button" class="analyze-btn" onclick="startAnalysis()">분석 시작하기</button>
+            <button type="button" class="analyze-btn" onclick="startAnalysis()">遺꾩꽍 ?쒖옉?섍린</button>
         </div>
 
-        <div id="loadingArea" class="content-card" style="display: none;">
-            <div class="loading-container"><div class="spinner"></div><h3>데이터 정합성 검증 및 분석 중...</h3></div>
+                <div id="loadingArea" class="content-card" style="display: none;">
+            <div class="loading-container">
+                <h3 class="loading-title">분석 진행 중</h3>
+                <p class="loading-desc">데이터 정합성 검증 및 분석을 진행하고 있습니다.</p>
+                <div class="loading-track">
+                    <div class="loading-indeterminate"></div>
+                </div>
+            </div>
         </div>
 
 <div id="resultArea" class="content-card" style="display: none;">
-    <h2 class="section-title">분석 결과 리포트</h2>
+    <h2 class="section-title">遺꾩꽍 寃곌낵 由ы룷??/h2>
     
     <div id="compatibilityWarning" style="display:none; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ddd;">
         <p id="warningText" style="margin:0; font-weight:bold;"></p>
@@ -47,16 +53,16 @@
 
     <div class="analysis-result">
         <div class="feedback-box good">
-            <h4>✅ 강점 및 적합 포인트</h4>
+            <h4>??媛뺤젏 諛??곹빀 ?ъ씤??/h4>
             <div id="strengthsContent"></div>
         </div>
         <div class="feedback-box bad">
-            <h4>⚠️ 보완 권장 사항</h4>
+            <h4>?좑툘 蹂댁셿 沅뚯옣 ?ы빆</h4>
             <div id="improvementsContent"></div>
         </div>
     </div>
     
-            <div class="btn-group"><button class="btn btn-retry" onclick="location.reload()">다시 분석하기</button></div>
+            <div class="btn-group"><button class="btn btn-retry" onclick="location.reload()">?ㅼ떆 遺꾩꽍?섍린</button></div>
         </div>
     </div>
 </div>
@@ -69,7 +75,7 @@
     const hasResumes = {{ 'true' if has_resumes else 'false' }};
     window.addEventListener('DOMContentLoaded', () => {
         if (!hasResumes) {
-            alert("등록된 이력서가 없습니다.");
+            alert("?깅줉???대젰?쒓? ?놁뒿?덈떎.");
             window.location.href = "/resumes";
         }
     });

@@ -1,0 +1,76 @@
+﻿{% extends "layouts/base.html" %}
+
+{% block title %}서비스 소개 - 말해뭐해{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/service_intro.css">
+{% endblock %}
+
+{% block content %}
+<section class="intro-hero">
+    <div class="intro-shell">
+        <p class="hero-kicker">SERVICE INTRO</p>
+        <h1 class="hero-title">면접 준비의 전 과정을 한 흐름으로 연결합니다</h1>
+        <p class="hero-desc">
+            말해뭐해는 이력서 분석부터 맞춤 질문 생성, 답변 녹음, 전사 기반 분석, 코칭 피드백까지
+            실제 준비 루프를 끊기지 않게 설계한 모의면접 서비스입니다.
+        </p>
+        {% if request.cookies.get("login_user") %}
+        <a href="/resumes" class="hero-cta">내 이력서로 시작하기</a>
+        {% else %}
+        <a href="/auth/login" class="hero-cta">로그인하고 시작하기</a>
+        {% endif %}
+    </div>
+</section>
+
+<section class="intro-section">
+    <div class="intro-shell">
+        <h2 class="section-title">핵심 기능</h2>
+        <div class="feature-grid">
+            <article class="feature-card">
+                <h3>이력서 기반 질문 생성</h3>
+                <p>업로드한 이력서를 바탕으로 직무 맥락에 맞춘 예상 질문 세트를 생성합니다.</p>
+            </article>
+            <article class="feature-card">
+                <h3>실전형 답변 녹음</h3>
+                <p>질문별 녹음을 통해 실제 면접처럼 답변을 구성하고 말하는 훈련을 반복할 수 있습니다.</p>
+            </article>
+            <article class="feature-card">
+                <h3>전사 기반 답변 분석</h3>
+                <p>전사문 신호를 기반으로 답변 흐름, 구조, 관련성 지표를 계산해 개선 방향을 제공합니다.</p>
+            </article>
+            <article class="feature-card">
+                <h3>LLM 코칭 피드백</h3>
+                <p>질문 맥락과 분석 지표를 함께 반영해 바로 적용 가능한 코칭 포인트를 제안합니다.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="intro-section alt">
+    <div class="intro-shell">
+        <h2 class="section-title">사용 흐름</h2>
+        <ol class="flow-list">
+            <li><span>01</span> 이력서 업로드 및 분석</li>
+            <li><span>02</span> 맞춤 질문 세트 생성</li>
+            <li><span>03</span> 질문별 답변 녹음</li>
+            <li><span>04</span> 전사/지표 분석 결과 확인</li>
+            <li><span>05</span> 약점 보강 질문으로 재훈련</li>
+        </ol>
+    </div>
+</section>
+
+<section class="intro-section">
+    <div class="intro-shell">
+        <h2 class="section-title">서비스 원칙</h2>
+        <div class="principles">
+            <p>
+                분석 결과는 <strong>텍스트 기반 추정치</strong>를 중심으로 제공되며, 음성 파형 기반 정밀 측정으로 과장하지 않습니다.
+            </p>
+            <p>
+                목표는 점수 자체보다 <strong>반복 가능한 개선 루프</strong>를 만드는 것입니다.
+            </p>
+        </div>
+    </div>
+</section>
+{% endblock %}

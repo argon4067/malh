@@ -1,55 +1,27 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
 {% block title %}이력서 분석 중 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/resume/resume_wait.css">
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
 {% endblock %}
 
 {% block content %}
 <div
     id="resumeWaitPage"
-    class="resume-container-wrapper"
+    class="submit-loading-wrapper"
     data-resume-id="{{ resume_id }}"
     data-model="{{ model }}"
 >
-    <div class="container">
-        <div class="upload-container" style="text-align:center; padding:80px 20px;">
-            <h2>이력서 분석 및 질문 생성 중입니다...</h2>
-            <p id="statusText">분석 준비 중입니다.</p>
-
-            <div
-                style="
-                    width: 100%;
-                    max-width: 420px;
-                    margin: 30px auto 12px;
-                    background: #e9eef3;
-                    border-radius: 999px;
-                    overflow: hidden;
-                    height: 16px;
-                "
-            >
-                <div
-                    id="progressBar"
-                    style="
-                        width: 0%;
-                        height: 100%;
-                        background: #123e59;
-                        transition: width 0.25s ease;
-                    "
-                ></div>
-            </div>
-
-            <div
-                id="percentageText"
-                style="
-                    font-size: 16px;
-                    font-weight: 600;
-                    color: #123e59;
-                "
-            >
-                0%
-            </div>
+    <div class="loading-card">
+        <h2 class="loading-title">이력서 분석 및 질문 생성 중입니다</h2>
+        <p class="loading-desc" id="statusText">분석 준비 중입니다.</p>
+        <div class="progress-track">
+            <div id="progressBar" class="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+            <span id="percentageText">0%</span>
+            <span>&nbsp;</span>
         </div>
     </div>
 </div>

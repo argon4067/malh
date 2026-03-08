@@ -48,6 +48,13 @@ PARTICLE_SUFFIXES = (
     "\uc73c\ub85c", "\uc640", "\uacfc", "\ub3c4", "\ub9cc",
 )
 
+# Scoring constants tuned for conservative, text-derived evaluation.
+TRANSCRIPT_CONSISTENCY_BASE = 0.44
+TARGET_BAND_INNER_EDGE_SCORE = 86.0
+TARGET_BAND_PEAK_SCORE = 96.0
+FILLER_PENALTY_FACTOR = 155.0
+REPETITION_PENALTY_FACTOR = 820.0
+
 
 @dataclass
 class SpeechScoreResult:
@@ -69,7 +76,12 @@ def _target_band_score(value: float, low: float, high: float, hard_low: float, h
     if value <= hard_low or value >= hard_high:
         return 0.0
     if low <= value <= high:
-        return 100.0
+        # Conservative in-band scoring: being "in range" is not auto-100.
+        center = (low + high) / 2.0
+        half_band = max(1e-6, (high - low) / 2.0)
+        center_distance = abs(value - center) / half_band
+        in_band = TARGET_BAND_PEAK_SCORE - center_distance * (TARGET_BAND_PEAK_SCORE - TARGET_BAND_INNER_EDGE_SCORE)
+        return _clamp(in_band, TARGET_BAND_INNER_EDGE_SCORE, TARGET_BAND_PEAK_SCORE)
     if value < low:
         return _clamp((value - hard_low) / (low - hard_low) * 100.0, 0.0, 100.0)
     return _clamp((hard_high - value) / (hard_high - high) * 100.0, 0.0, 100.0)
@@ -136,6 +148,8 @@ def calculate_speech_scores(
     punctuation_sentence_count = len(punct_sentences)
 
     connective_count = sum(1 for t in tokens if t in CONNECTIVE_WORDS)
+    connective_token_set = {t for t in tokens if t in CONNECTIVE_WORDS}
+    unique_connective_count = len(connective_token_set)
     # Reduce punctuation dependency without over-trusting connective repetition.
     connective_unit_est = (connective_count + 1) if word_count > 0 else 1
     if punctuation_sentence_count > 0:
@@ -182,18 +196,41 @@ def calculate_speech_scores(
 
     # Fluency axis.
     pace_score = _target_band_score(wpm, low=105.0, high=150.0, hard_low=60.0, hard_high=210.0)
-    filler_score = _clamp(100.0 - filler_event_ratio * 125.0, 0.0, 100.0)
-    repetition_score = _clamp(100.0 - repetition_ratio * 650.0, 0.0, 100.0)
-    fluency_score = round(pace_score * 0.45 + filler_score * 0.3 + repetition_score * 0.25, 1)
+    filler_score = _clamp(100.0 - filler_event_ratio * FILLER_PENALTY_FACTOR, 0.0, 100.0)
+    repetition_score = _clamp(100.0 - repetition_ratio * REPETITION_PENALTY_FACTOR, 0.0, 100.0)
+    frequent_filler_penalty = _clamp((filler_events_per_10sec - 0.45) * 35.0, 0.0, 24.0)
+    fluency_score = round(
+        _clamp(
+            pace_score * 0.4 + filler_score * 0.35 + repetition_score * 0.25 - frequent_filler_penalty,
+            0.0,
+            100.0,
+        ),
+        1,
+    )
 
-    # Transcript-quality axis (legacy-named clarity for compatibility).
+    # Transcript-reliability axis from text traces (legacy key: clarity_score).
     transcript_cleanliness = _quality_ratio(clean_text)
+    repetition_clarity_penalty = _clamp(repetition_ratio * 0.58, 0.0, 0.58)
+    filler_clarity_penalty = _clamp(filler_event_ratio * 0.31, 0.0, 0.48)
+    pace_deviation = abs(wpm - 127.5)
+    pace_clarity_penalty = _clamp((pace_deviation / 65.0) * 0.20, 0.0, 0.20)
     transcription_consistency = _clamp(
-        0.62 + transcript_cleanliness * 0.35 - filler_event_ratio * 0.18 - repetition_ratio * 0.14,
+        TRANSCRIPT_CONSISTENCY_BASE
+        + transcript_cleanliness * 0.24
+        - filler_clarity_penalty
+        - repetition_clarity_penalty
+        - pace_clarity_penalty,
         0.0,
         1.0,
     )
-    clarity_score = round((transcription_consistency * 100.0) * 0.75 + (transcript_cleanliness * 100.0) * 0.25, 1)
+    clarity_score = round(
+        _clamp(
+            (transcription_consistency * 100.0) * 0.92 + (transcript_cleanliness * 100.0) * 0.08 - frequent_filler_penalty * 0.8,
+            0.0,
+            100.0,
+        ),
+        1,
+    )
 
     # Legacy-facing keys kept for template/API compatibility only.
     stt_accuracy = transcription_consistency
@@ -207,36 +244,92 @@ def calculate_speech_scores(
     sentence_len_score = _target_band_score(avg_sentence_len, low=10.0, high=20.0, hard_low=5.0, hard_high=34.0)
     variation_score = _target_band_score(sentence_len_std, low=3.0, high=7.0, hard_low=0.5, hard_high=14.0)
     connective_score = _target_band_score(connective_density, low=0.35, high=1.0, hard_low=0.1, hard_high=2.0)
-    structure_score = round(sentence_len_score * 0.45 + variation_score * 0.3 + connective_score * 0.25, 1)
+    connective_repeat_ratio = connective_count / max(1, unique_connective_count)
+    connective_overuse_penalty = _clamp(
+        max(0.0, connective_density - 0.95) * 16.0 + max(0.0, connective_repeat_ratio - 2.3) * 6.0,
+        0.0,
+        18.0,
+    )
+    structure_score = round(
+        _clamp(
+            sentence_len_score * 0.46 + variation_score * 0.40 + connective_score * 0.14 - connective_overuse_penalty,
+            0.0,
+            100.0,
+        ),
+        1,
+    )
 
     # Length axis (no sentence_len_score reuse to reduce duplicated effects).
     length_adequacy_score = _target_band_score(float(duration), low=70.0, high=110.0, hard_low=30.0, hard_high=180.0)
     word_count_score = _target_band_score(float(word_count), low=40.0, high=180.0, hard_low=10.0, hard_high=320.0)
     length_score = round(length_adequacy_score * 0.75 + word_count_score * 0.25, 1)
 
-    # Content axis: keep relevance but avoid rewarding vocabulary size alone.
+    # Content-like axis: text-level relevance/coverage proxy (not semantic depth).
     numeric_density = len(re.findall(r"\d+", clean_text)) / max(1, discourse_unit_count)
-    detail_score = _target_band_score(numeric_density, low=0.3, high=1.4, hard_low=0.05, hard_high=3.0)
+    detail_score = _target_band_score(numeric_density, low=0.15, high=0.85, hard_low=0.0, hard_high=2.2)
+    topic_diversity = len(response_topic_tokens) / max(1, word_count)
+    topic_diversity_score = _target_band_score(topic_diversity, low=0.18, high=0.42, hard_low=0.05, hard_high=0.75)
     if question_topic_tokens:
         # Blend question-coverage and response-focus to reduce overlap-only bias.
         response_focus = len(response_topic_tokens.intersection(question_topic_tokens)) / max(
             1,
             len(response_topic_tokens),
         )
-        relevance_score = round((topic_overlap * 100.0) * 0.7 + (response_focus * 100.0) * 0.3, 1)
+        relevance_score = round((topic_overlap * 100.0) * 0.45 + (response_focus * 100.0) * 0.55, 1)
     else:
         response_focus = 0.0
-        relevance_score = 50.0
+        relevance_score = 45.0
     topic_coverage = _target_band_score(float(len(response_topic_tokens)), low=8.0, high=22.0, hard_low=3.0, hard_high=45.0)
-    gated_topic_coverage = topic_coverage * (0.5 + 0.5 * topic_overlap)
-    content_score = round(relevance_score * 0.35 + connective_score * 0.25 + detail_score * 0.25 + gated_topic_coverage * 0.15, 1)
+    gated_topic_coverage = topic_coverage * (0.35 + 0.65 * response_focus)
+    shallow_template_penalty = _clamp(
+        max(0.0, topic_overlap - response_focus) * 40.0
+        + max(0.0, connective_density - 1.05) * 8.0
+        + repetition_ratio * 170.0,
+        0.0,
+        26.0,
+    )
+    content_score = round(
+        _clamp(
+            relevance_score * 0.36
+            + (response_focus * 100.0) * 0.22
+            + gated_topic_coverage * 0.20
+            + topic_diversity_score * 0.14
+            + detail_score * 0.08
+            - shallow_template_penalty,
+            0.0,
+            100.0,
+        ),
+        1,
+    )
 
-    delivery_score = round(fluency_score * 0.5 + clarity_score * 0.5, 1)
+    # Delivery-like axis from text-side flow proxies (not acoustic delivery quality).
+    pause_instability_penalty = _clamp(
+        pause_ratio * 26.0 + max(0.0, max_pause_sec - 3.5) * 2.0,
+        0.0,
+        18.0,
+    )
+    delivery_stability = _clamp(
+        100.0
+        - filler_event_ratio * 120.0
+        - repetition_ratio * 700.0
+        - pause_instability_penalty,
+        0.0,
+        100.0,
+    )
+    delivery_score = round(
+        _clamp(
+            fluency_score * 0.5 + clarity_score * 0.2 + delivery_stability * 0.3,
+            0.0,
+            100.0,
+        ),
+        1,
+    )
     confidence_score = round(
         _clamp(
-            transcript_cleanliness * 100.0 * 0.42
-            + transcription_consistency * 100.0 * 0.38
-            + word_count_score * 0.20,
+            transcript_cleanliness * 100.0 * 0.30
+            + transcription_consistency * 100.0 * 0.35
+            + word_count_score * 0.20
+            + fluency_score * 0.15,
             0.0,
             100.0,
         ),
@@ -264,19 +357,26 @@ def calculate_speech_scores(
             "filler_events_per_sentence": round(filler_events_per_sentence, 4),
             "filler_events_per_10sec": round(filler_events_per_10sec, 4),
             "filler_event_ratio": round(filler_event_ratio, 4),
+            "frequent_filler_penalty": round(frequent_filler_penalty, 2),
             "repetition_count": repetition_count,
             "repetition_ratio": round(repetition_ratio, 4),
             "avg_sentence_len": round(avg_sentence_len, 2),
             "sentence_len_std": round(sentence_len_std, 2),
             "connective_count": connective_count,
+            "unique_connective_count": unique_connective_count,
+            "connective_repeat_ratio": round(connective_repeat_ratio, 4),
             "connective_density": round(connective_density, 4),
+            "connective_overuse_penalty": round(connective_overuse_penalty, 2),
             "topic_overlap": round(topic_overlap, 4),
             "response_focus": round(response_focus, 4),
             "topic_token_count": len(response_topic_tokens),
+            "topic_diversity": round(topic_diversity, 4),
+            "topic_diversity_score": round(topic_diversity_score, 1),
             "topic_coverage": round(topic_coverage, 1),
             "gated_topic_coverage": round(gated_topic_coverage, 1),
             "relevance_score": relevance_score,
             "detail_score": round(detail_score, 1),
+            "shallow_template_penalty": round(shallow_template_penalty, 2),
             # Legacy-facing keys (compatibility)
             "stt_accuracy": round(stt_accuracy, 4),
             "avg_stt_confidence": round(avg_stt_confidence, 4),
@@ -291,6 +391,7 @@ def calculate_speech_scores(
             "pause_count": pause_count,
             "speed_variation": round(speed_variation, 2),
             "pause_estimated": True,
+            "pause_instability_penalty": round(pause_instability_penalty, 2),
             # Band components
             "length_adequacy_score": round(length_adequacy_score, 1),
             "word_count_score": round(word_count_score, 1),
@@ -299,7 +400,9 @@ def calculate_speech_scores(
             # Explicit transcript-quality keys
             "transcript_cleanliness": round(transcript_cleanliness, 4),
             "transcription_consistency": round(transcription_consistency, 4),
-            "legacy_metric_notice": "stt_accuracy/pronunciation_clarity/articulation_ratio/volume_stability are text-derived proxies.",
+            "delivery_stability": round(delivery_stability, 1),
+            "content_score_note": "content_score is a text-based relevance/coverage proxy, not a semantic-depth score.",
+            "legacy_metric_notice": "stt_accuracy/pronunciation_clarity/articulation_ratio/volume_stability are text-derived proxies from transcript signals, not acoustic measurements.",
             # Aggregates
             "delivery_score": delivery_score,
             "content_score": content_score,

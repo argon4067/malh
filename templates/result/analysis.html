@@ -1,46 +1,27 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
 {% block title %}답변 분석 진행 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/result/answer_analysis.css">
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
 {% endblock %}
 
 {% block content %}
-<div class="analysis-container-wrapper">
-    <div class="analysis-container">
-        <div class="icon-area">
-            <div id="icon-step-1" class="stage-icon active">
-                <div class="voice-icon-wrapper">
-                    <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
-                </div>
-            </div>
-
-            <div id="icon-step-2" class="stage-icon">
-                <div class="stt-icon-wrapper">
-                    <div class="text-line"></div><div class="text-line"></div><div class="text-line"></div><div class="text-line"></div>
-                </div>
-            </div>
-
-            <div id="icon-step-3" class="stage-icon">
-                <div class="text-scan-wrapper">
-                    <div class="document-icon">
-                        <div class="doc-line"></div><div class="doc-line"></div><div class="doc-line"></div><div class="doc-line"></div><div class="doc-line"></div>
-                        <div class="scan-beam"></div>
-                    </div>
-                </div>
-            </div>
+<div class="submit-loading-wrapper">
+    <div class="loading-card">
+        <h2 class="loading-title" id="statusTitle">AI가 답변을 분석하고 있습니다</h2>
+        <p class="loading-desc" id="statusDesc">음성 데이터에서 텍스트를 추출하고 지표를 계산하는 중입니다.</p>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressBar"></div>
         </div>
-
-        <h2 class="status-title" id="statusTitle">AI가 음성을 분석하고 있습니다...</h2>
-        <p class="status-desc" id="statusDesc">음성 파일에서 발화 특성을 추출하고 있습니다.</p>
-
-        <div class="progress-wrapper">
-            <div class="progress-bar" id="progressBar"></div>
+        <div class="progress-meta">
+            <span id="percentageText">0%</span>
+            <span>&nbsp;</span>
         </div>
-        <div class="percentage" id="percentageText">0%</div>
-
-        <div class="step-indicator">
+        <div style="display:none;" aria-hidden="true">
+            <div id="icon-step-1" class="stage-icon active"></div>
+            <div id="icon-step-2" class="stage-icon"></div>
+            <div id="icon-step-3" class="stage-icon"></div>
             <div id="dot-1" class="step-dot active"></div>
             <div id="dot-2" class="step-dot"></div>
             <div id="dot-3" class="step-dot"></div>

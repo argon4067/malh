@@ -1,6 +1,6 @@
-{% extends "layouts/base.html" %}
+﻿{% extends "layouts/base.html" %}
 
-{% block title %}면접 질문 - 말해봐해{% endblock %}
+{% block title %}면접 질문 - 말해뭐해{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/interview/question.css">
@@ -12,15 +12,15 @@
         <div class="page-header">
             <h2 class="page-title">면접 질문</h2>
             <p class="page-desc">
-                질문 번호를 선택한 뒤 상세 페이지에서 면접을 시작해 주세요.<br>
-                시작 버튼을 누르면 질문이 5초 표시된 후 녹음이 시작됩니다.
+                질문 번호를 선택하면 상세 페이지에서 면접을 시작할 수 있습니다.<br>
+                시작 버튼을 누르면 질문이 5초 표시된 뒤 녹음이 시작됩니다.
             </p>
         </div>
 
         <div class="question-list">
             {% if question_items %}
                 {% for item in question_items %}
-                <div class="question-card" onclick="goToDetail({{ item.sel_id }})">
+                <div class="question-card" onclick="goToDetail({{ item.sel_id }}, {{ 'true' if item.is_recorded else 'false' }})">
                     <div class="q-content">
                         <div class="q-number">{{ item.sel_order_no }}</div>
                         <div class="q-text">클릭 후 상세 페이지에서 질문을 확인할 수 있습니다.</div>
@@ -55,5 +55,5 @@
         recordedQuestions: {{ recorded_questions }}
     };
 </script>
-<script src="/static/js/interview/question.js?v=20260308"></script>
+<script src="/static/js/interview/question.js?v=20260309"></script>
 {% endblock %}

@@ -1,0 +1,97 @@
+﻿{% extends "layouts/base.html" %}
+
+{% block title %}문의하기 - 말해뭐해{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/contact.css">
+{% endblock %}
+
+{% block content %}
+<section class="contact-hero">
+    <div class="contact-shell">
+        <p class="kicker">CONTACT</p>
+        <h1>문의 및 제휴 안내</h1>
+        <p>서비스 사용 중 불편사항, 기술 문의, 제휴 제안은 아래 채널로 연락해 주세요.</p>
+    </div>
+</section>
+
+<section class="contact-section">
+    <div class="contact-shell contact-grid">
+        <article class="contact-card">
+            <h3>고객 지원</h3>
+            <p><strong>전화</strong> 1588-0000</p>
+            <p><strong>이메일</strong> help@interview.or.kr</p>
+            <p><strong>운영시간</strong> 평일 10:00 ~ 18:00</p>
+        </article>
+        <article class="contact-card">
+            <h3>사업/제휴</h3>
+            <p><strong>이메일</strong> biz@interview.or.kr</p>
+            <p><strong>대상</strong> 교육기관, 채용팀, B2B 프로그램</p>
+            <p><strong>응답</strong> 영업일 기준 1~2일 이내</p>
+        </article>
+        <article class="contact-card">
+            <h3>오피스</h3>
+            <p>서울 강남구 테헤란로 6길 12</p>
+            <p>프로젝트팀: 0to1</p>
+            <p>방문 상담은 사전 예약 후 가능합니다.</p>
+        </article>
+    </div>
+</section>
+
+<section class="contact-section alt">
+    <div class="contact-shell form-shell">
+        <h2 class="section-title">문의 남기기</h2>
+        {% if submitted %}
+        <div class="form-alert success">문의가 접수되었습니다. 영업일 기준 1~2일 내에 답변드리겠습니다.</div>
+        {% endif %}
+        <form class="contact-form" action="/contact/inquiry" method="post">
+            <div class="field-row">
+                <div class="field">
+                    <label for="name">이름</label>
+                    <input id="name" name="name" type="text" maxlength="100" required>
+                </div>
+                <div class="field">
+                    <label for="email">이메일</label>
+                    <input id="email" name="email" type="email" maxlength="255" required>
+                </div>
+            </div>
+            <div class="field">
+                <label for="category">문의 유형</label>
+                <select id="category" name="category">
+                    <option value="GENERAL">일반 문의</option>
+                    <option value="BUG">오류/버그 제보</option>
+                    <option value="ACCOUNT">계정/권한 문의</option>
+                    <option value="PARTNERSHIP">사업/제휴 문의</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="message">문의 내용</label>
+                <textarea id="message" name="message" rows="7" maxlength="4000" required></textarea>
+            </div>
+            <button type="submit" class="submit-btn">문의 접수하기</button>
+        </form>
+    </div>
+</section>
+
+<section class="contact-section">
+    <div class="contact-shell faq-shell">
+        <h2 class="section-title">자주 묻는 질문</h2>
+        <details class="faq-item" open>
+            <summary>점수는 어떤 방식으로 계산되나요?</summary>
+            <p>현재 분석은 전사문 기반 지표를 중심으로 계산되며, 실제 음성 파형 분석으로 과장하지 않습니다.</p>
+        </details>
+        <details class="faq-item">
+            <summary>녹음 완료한 질문을 다시 답변할 수 있나요?</summary>
+            <p>현재 기본 플로우에서는 완료된 질문 재녹음을 제한하고 있습니다.</p>
+        </details>
+        <details class="faq-item">
+            <summary>분석 결과는 어디서 확인하나요?</summary>
+            <p>면접 제출 후 결과 페이지에서 텍스트/답변 분석과 코칭 피드백을 확인할 수 있습니다.</p>
+        </details>
+        <details class="faq-item">
+            <summary>문의 답변은 얼마나 걸리나요?</summary>
+            <p>일반적으로 영업일 기준 1~2일 이내에 답변드립니다.</p>
+        </details>
+    </div>
+</section>
+{% endblock %}
