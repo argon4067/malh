@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,10 @@ class ExperienceItem(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     description: Optional[str] = None
-
+    experience_type: Optional[
+        Literal["FULL_TIME", "CONTRACT", "PART_TIME", "INTERN", "MILITARY", "ETC"]
+    ] = None
+    count_as_career: bool = False
 
 class ProjectItem(BaseModel):
     name: str
@@ -27,6 +30,8 @@ class ProjectItem(BaseModel):
     end_date: Optional[str] = None
     description: Optional[str] = None
     technologies: List[str] = Field(default_factory=list)
+
+
 
 
 class CertificateItem(BaseModel):

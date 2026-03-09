@@ -89,9 +89,11 @@
                                 </div>
 
                                 <div class="info-row">
-                                    <span class="info-label">직무</span>
+                                    <span class="info-label">포지션</span>
                                     <span class="info-value">
-                                        {% if resume.classification and resume.classification.class_job_role %}
+                                        {% if resume.structured and resume.structured.structured_position %}
+                                            {{ resume.structured.structured_position }}
+                                        {% elif resume.classification and resume.classification.class_job_role %}
                                             {{ resume.classification.class_job_role }}
                                         {% elif resume.classification and resume.classification.class_job_family %}
                                             {{ resume.classification.class_job_family }}

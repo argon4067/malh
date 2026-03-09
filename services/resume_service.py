@@ -6,10 +6,13 @@ from typing import List, Optional
 import json
 import logging
 
+
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from openai import OpenAI
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from datetime import date 
 
 from models.llm_run import LlmRun
 from models.resume import Resume
@@ -96,51 +99,101 @@ def normalize_career_summary(value: Optional[str]) -> Optional[str]:
     if not text:
         return None
 
-    # 너무 긴 문장은 경력 수준값이 아닐 확률이 높음
-    if len(text) > 30:
-        return None
-
-    allowed_exact = {
+    # 1년 미만/인턴/신입 표현은 모두 신입으로 통일
+    newbie_keywords = [
         "신입",
-        "경력",
-        "미분류",
-    }
-
-    if text in allowed_exact:
-        return text
-
-    valid_patterns = [
-        r"인턴\s*\d+\s*(개월|달|년)",
-        r"\d+\s*개월",
-        r"\d+\s*년(\s*\d+\s*개월)?",
-        r"총\s*\d+\s*년(\s*\d+\s*개월)?",
-        r"경력\s*\d+\s*년(\s*\d+\s*개월)?",
+        "인턴",
+        "연수",
+        "교육",
+        "부트캠프",
+        "취업준비",
+        "취준",
     ]
-
-    if any(re.fullmatch(pattern, text) for pattern in valid_patterns):
-        return text
-
-    if "신입" in text:
+    if any(keyword in text for keyword in newbie_keywords):
         return "신입"
 
-    # 경력 소개문/자기소개성 문장 차단
-    invalid_keywords = [
-        "역량",
-        "학습",
-        "공부",
-        "성장",
-        "개발자",
-        "문제 해결",
-        "관심",
-        "지향",
-        "포부",
-        "목표",
-    ]
+    # "총 5년", "경력 5년", "5년 3개월", "약 5년" -> "5년"
+    year_match = re.search(r"(\d+)\s*년", text)
+    if year_match:
+        years = int(year_match.group(1))
+        if years <= 0:
+            return "신입"
+        return f"{years}년"
 
-    if any(keyword in text for keyword in invalid_keywords):
-        return None
+    # 개월만 있으면 1년 미만으로 보고 신입 처리
+    month_match = re.search(r"(\d+)\s*개월", text)
+    if month_match:
+        months = int(month_match.group(1))
+        if months < 12:
+            return "신입"
 
     return None
+
+def _parse_year_month(value: Optional[str]) -> Optional[tuple[int, int]]:
+    if not value:
+        return None
+
+    text = value.strip()
+
+    m = re.search(r"((?:19|20)\d{2})[./-](\d{1,2})", text)
+    if m:
+        year = int(m.group(1))
+        month = int(m.group(2))
+        if 1 <= month <= 12:
+            return year, month
+
+    m = re.search(r"((?:19|20)\d{2})", text)
+    if m:
+        year = int(m.group(1))
+        return year, 1
+
+    return None
+
+
+def _month_diff(start: tuple[int, int], end: tuple[int, int]) -> int:
+    sy, sm = start
+    ey, em = end
+    return max(0, (ey - sy) * 12 + (em - sm) + 1)
+
+
+def calculate_career_summary_from_experiences(experiences: List) -> str:
+    total_months = 0
+
+    for exp in experiences or []:
+        exp_type = getattr(exp, "experience_type", None)
+        count_as_career = getattr(exp, "count_as_career", False)
+
+        # FULL_TIME / CONTRACT 이면서 count_as_career=true 인 경우만 포함
+        if not count_as_career:
+            continue
+
+        if exp_type not in {"FULL_TIME", "CONTRACT"}:
+            continue
+
+        start = _parse_year_month(getattr(exp, "start_date", None))
+        end_raw = getattr(exp, "end_date", None)
+
+        if not start:
+            continue
+
+        if end_raw and any(word in end_raw for word in ["재직", "현재", "근무중"]):
+            today = date.today()
+            end = (today.year, today.month)
+        else:
+            end = _parse_year_month(end_raw)
+
+        if not end:
+            continue
+
+        total_months += _month_diff(start, end)
+
+    years = total_months // 12
+
+    if years <= 0:
+        return "신입"
+
+    return f"{years}년"
+
 
 def is_probable_resume(text: str):
     t = (text or "").strip()
@@ -372,6 +425,23 @@ def create_resume_record(
     if len(extracted_text) > 80000:
         extracted_text = extracted_text[:80000] + "\n\n[TRUNCATED]"
 
+    file_hash = sha256_bytes(data)
+
+    existing = (
+        db.query(Resume)
+        .filter(
+            Resume.user_id == user_id,
+            Resume.resume_sha256 == file_hash,
+        )
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 업로드한 이력서입니다.",
+        )
+
     resume = Resume(
         user_id=user_id,
         resume_file_name=original_filename,
@@ -383,10 +453,25 @@ def create_resume_record(
         resume_status="UPLOADED",
         resume_error_message=None,
     )
-    db.add(resume)
-    db.commit()
-    db.refresh(resume)
-    return resume
+    try:
+        db.add(resume)
+        db.commit()
+        db.refresh(resume)
+        return resume
+
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="이미 업로드한 이력서입니다.",
+        ) from e
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"이력서 저장 실패: {e}",
+        ) from e
 
 
 def get_resume_by_id(db: Session, resume_id: int) -> Resume:
@@ -622,11 +707,18 @@ def analyze_saved_resume(
                 prompt_version=PROMPT_VERSION_STRUCTURE,
             )
 
+            career_summary = calculate_career_summary_from_experiences(
+                structure_result.experiences
+            )
+
+            if not career_summary:
+                career_summary = normalize_career_summary(structure_result.career_summary)
+
             structure_row = ResumeStructured(
                 resume_id=resume.resume_id,
                 llm_id=structure_run.llm_id,
                 structured_position=structure_result.position,
-                structured_career_summary=(structure_result.career_summary or "")[:1000] or None,
+                structured_career_summary=career_summary,
                 structured_skills=structure_result.skills,
                 structured_educations=[x.model_dump() for x in structure_result.educations],
                 structured_experiences=[x.model_dump() for x in structure_result.experiences],

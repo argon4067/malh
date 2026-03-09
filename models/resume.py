@@ -16,7 +16,7 @@ class Resume(Base):
     resume_file_path = Column(String(255), nullable=True)
     resume_file_size = Column(Integer, nullable=True, comment="단위: byte")
     resume_extracted_text = Column(LONGTEXT, nullable=True)
-    resume_sha256 = Column(CHAR(64), nullable=True)
+    resume_sha256 = Column(CHAR(64), nullable=False)
     resume_created_at = Column(
         DateTime, nullable=True, server_default=text("CURRENT_TIMESTAMP")
     )
