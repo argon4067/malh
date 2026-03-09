@@ -141,7 +141,7 @@ def check_id(userId: str, db: Session = Depends(get_db)):
     return {"exists": False, "invalid_format": False, "is_withdrawn": False}
 
 # =====================================================
-# 비밀번호 변경 API (POST) - ⭐ 수정된 부분
+# 비밀번호 변경 API (POST) - ⭐ 콘솔 에러 방지를 위해 200 OK로 통일
 # =====================================================
 @router.post("/auth/change-password")
 def change_password(
@@ -150,30 +150,33 @@ def change_password(
     db: Session = Depends(get_db)
 ):
     user_id = request.cookies.get("login_user")
+    
+    # 1. 로그인 확인 (401 대신 success: False)
     if not user_id:
-        return JSONResponse(status_code=401, content={"detail": "로그인이 필요합니다."})
+        return JSONResponse(content={"success": False, "detail": "로그인이 필요합니다."})
         
-    # 새 비밀번호 형식 검증
+    # 2. 새 비밀번호 형식 검증 (400 대신 success: False)
     if not re.match(PW_REGEX, data.new_password):
-        return JSONResponse(status_code=400, content={"detail": "비밀번호 형식이 올바르지 않습니다."})
+        return JSONResponse(content={"success": False, "detail": "비밀번호 형식이 올바르지 않습니다."})
         
     user = db.query(User).filter(User.user_username == user_id).first()
     if not user:
-        return JSONResponse(status_code=404, content={"detail": "사용자를 찾을 수 없습니다."})
+        return JSONResponse(content={"success": False, "detail": "사용자를 찾을 수 없습니다."})
 
-    # ✅ 1. 현재 비밀번호 검증 로직 추가
+    # ✅ 3. 현재 비밀번호 검증 (400 대신 success: False)
     if not verify_password(data.current_password, user.user_pw):
-        return JSONResponse(status_code=400, content={"detail": "현재 비밀번호가 틀립니다."})
+        return JSONResponse(content={"success": False, "detail": "현재 비밀번호가 틀립니다."})
         
-    # 2. 기존 비밀번호와 동일한지 확인
+    # 4. 기존 비밀번호와 동일한지 확인 (400 대신 success: False)
     if verify_password(data.new_password, user.user_pw):
-        return JSONResponse(status_code=400, content={"detail": "기존 비밀번호와 동일합니다. 다른 비밀번호를 사용해 주세요."})
+        return JSONResponse(content={"success": False, "detail": "기존 비밀번호와 동일합니다. 다른 비밀번호를 사용해 주세요."})
         
-    # 3. 비밀번호 업데이트
+    # 5. 비밀번호 업데이트 및 성공 응답
     user.user_pw = hash_password(data.new_password)
     db.commit()
     
-    response = JSONResponse(content={"message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인 해주세요"})
+    # 성공 시 success: True 반환
+    response = JSONResponse(content={"success": True, "message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인 해주세요"})
     response.delete_cookie(key="login_user", path="/")
     return response
 
