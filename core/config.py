@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = Field(default="gpt-4.1-mini")
+    OPENAI_TRANSCRIPT_REFINE_MODEL: str | None = None
+    OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC: int = Field(default=12)
     FASTER_WHISPER_MODEL_SIZE: str = Field(default="small")
     FASTER_WHISPER_DEVICE: str = Field(default="cpu")
     FASTER_WHISPER_COMPUTE_TYPE: str = Field(default="int8")
