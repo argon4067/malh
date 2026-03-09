@@ -17,15 +17,14 @@ from models.answer_analysis import AnswerAnalysis
 from models.speech_score_summary import SpeechScoreSummary
 from models.speech_score_detail import SpeechScoreDetail
 from models.speech_feedback import SpeechFeedback
-from models.transcript_refine import TranscriptRefine
 
 
 def main():
     Base.metadata.drop_all(bind=engine)
-    print("🗑️ 기존 테이블 삭제 완료")
+    print("Dropped existing tables.")
 
     Base.metadata.create_all(bind=engine)
-    print("✅ 테이블 재생성 완료")
+    print("Recreated tables.")
 
 
 if __name__ == "__main__":
