@@ -1,4 +1,4 @@
-PROMPT_VERSION_STRUCTURE = "RESUME_STRUCTURE_V4"
+PROMPT_VERSION_STRUCTURE = "RESUME_STRUCTURE_V3"
 
 STRUCTURE_SYSTEM_PROMPT = """
 당신은 이력서 구조화 분석기입니다.
@@ -88,33 +88,7 @@ def build_structure_user_prompt(
   단, 문서에 직접 나온 것만 넣으십시오
 
 - educations:
-  educations에는 정규 학력만 추출하십시오.
-
-  포함:
-  - 고등학교
-  - 전문대학
-  - 대학교
-  - 대학원
-  - 학위가 수반되는 정규 교육과정
-
-  제외:
-  - 부트캠프
-  - 국비교육
-  - 사내교육
-  - 직무교육
-  - 온라인 강의
-  - 아카데미
-  - 수료 과정
-  - 세미나 / 워크숍
-  - 군 교육
-  - 자격증 준비 과정
-  - 프로젝트 / 인턴 / 대외활동
-
-  규칙:
-  - school에는 실제 학교명/대학명/대학원명만 넣으십시오.
-  - 전공/학위가 없더라도 정규 학력으로 보이면 추출할 수 있습니다.
-  - 교육기관인지 애매하거나 훈련/수료 과정에 가까우면 educations에 넣지 마십시오.
-  - 자격증/수료/교육 이수 내용은 educations가 아니라 certificates 또는 다른 항목으로 판단하십시오.
+  학교/기관, 전공/과정, 기간, 상태 등을 가능한 범위에서 묶어서 추출
 
 - experiences:
   회사/기관/조직 단위의 경력, 인턴, 활동, 실무 경험을 추출

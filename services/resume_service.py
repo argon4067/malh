@@ -23,12 +23,12 @@ from schemas.resume_llm import (
     ResumeKeywordItem,
     ResumeKeywordResult,
 )
-from services.prompt.resume.classify_prompt_v2 import (
+from services.prompt.resume.classify_prompt import (
     PROMPT_VERSION_CLASSIFY,
     CLASSIFY_SYSTEM_PROMPT,
     build_classify_user_prompt,
 )
-from services.prompt.resume.keyword_prompt_v2 import (
+from services.prompt.resume.keyword_prompt import (
     PROMPT_VERSION_KEYWORD,
     KEYWORD_SYSTEM_PROMPT,
     build_keyword_user_prompt,
@@ -36,7 +36,7 @@ from services.prompt.resume.keyword_prompt_v2 import (
 
 from models.resume_structured import ResumeStructured
 from schemas.resume_structured import ResumeStructuredResult
-from services.prompt.resume.structure_prompt_v1 import (
+from services.prompt.resume.structure_prompt import (
     PROMPT_VERSION_STRUCTURE,
     STRUCTURE_SYSTEM_PROMPT,
     build_structure_user_prompt,
@@ -128,6 +128,111 @@ def normalize_career_summary(value: Optional[str]) -> Optional[str]:
             return "신입"
 
     return None
+
+
+# 학력 판별용 키워드
+FORMAL_EDU_INCLUDE_KEYWORDS = [
+    "고등학교",
+    "대학교",
+    "대학원",
+    "전문대",
+    "전문대학교",
+    "학사",
+    "석사",
+    "박사",
+    "졸업",
+    "재학",
+    "휴학",
+    "졸업예정",
+    "편입",
+]
+
+FORMAL_EDU_EXCLUDE_KEYWORDS = [
+    "부트캠프",
+    "캠프",
+    "국비",
+    "내일배움",
+    "kdt",
+    "아카데미",
+    "교육",
+    "연수",
+    "훈련",
+    "수료",
+    "세미나",
+    "워크숍",
+    "강의",
+    "온라인",
+    "자격증",
+    "인턴",
+    "프로젝트",
+    "군",
+    "병장",
+    "육군",
+    "해군",
+    "공군",
+]
+
+
+# 정규 학력 여부 판별
+def is_probable_formal_education(item) -> bool:
+    school = (getattr(item, "school", None) or "").strip()
+    major = (getattr(item, "major", None) or "").strip()
+    degree = (getattr(item, "degree", None) or "").strip()
+    description = (getattr(item, "description", None) or "").strip()
+
+    text = " ".join([school, major, degree, description]).lower()
+
+    if not school:
+        return False
+
+    # 강한 포함 조건
+    if any(keyword in school for keyword in ["고등학교", "대학교", "대학원", "전문대", "전문대학교"]):
+        return True
+
+    if any(keyword in degree for keyword in ["학사", "석사", "박사", "전문학사"]):
+        return True
+
+    # 제외 키워드가 강하게 들어가면 학력 제외
+    if any(keyword.lower() in text for keyword in FORMAL_EDU_EXCLUDE_KEYWORDS):
+        return False
+
+    # 나머지는 정규 학력 키워드가 있을 때만 허용
+    if any(keyword.lower() in text for keyword in [k.lower() for k in FORMAL_EDU_INCLUDE_KEYWORDS]):
+        return True
+
+    return False
+
+
+# 학력 리스트 정리 + 중복 제거
+def sanitize_educations(items: List) -> List:
+    result = []
+    seen = set()
+
+    for item in items or []:
+        if not is_probable_formal_education(item):
+            continue
+
+        school = (getattr(item, "school", None) or "").strip()
+        major = (getattr(item, "major", None) or "").strip()
+        degree = (getattr(item, "degree", None) or "").strip()
+        start_date = (getattr(item, "start_date", None) or "").strip()
+        end_date = (getattr(item, "end_date", None) or "").strip()
+
+        key = (
+            school.lower(),
+            major.lower(),
+            degree.lower(),
+            start_date.lower(),
+            end_date.lower(),
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(item)
+
+    return result
 
 def _parse_year_month(value: Optional[str]) -> Optional[tuple[int, int]]:
     if not value:
@@ -711,8 +816,11 @@ def analyze_saved_resume(
                 structure_result.experiences
             )
 
+            
             if not career_summary:
                 career_summary = normalize_career_summary(structure_result.career_summary)
+
+            clean_educations = sanitize_educations(structure_result.educations)
 
             structure_row = ResumeStructured(
                 resume_id=resume.resume_id,
@@ -720,7 +828,7 @@ def analyze_saved_resume(
                 structured_position=structure_result.position,
                 structured_career_summary=career_summary,
                 structured_skills=structure_result.skills,
-                structured_educations=[x.model_dump() for x in structure_result.educations],
+                structured_educations=[x.model_dump() for x in clean_educations],
                 structured_experiences=[x.model_dump() for x in structure_result.experiences],
                 structured_projects=[x.model_dump() for x in structure_result.projects],
                 structured_certificates=[x.model_dump() for x in structure_result.certificates],
