@@ -24,7 +24,7 @@ import models.speech_score_detail
 import models.speech_feedback
 import models.speech_score_summary
 import models.transcript
-import models.transcript_refine
+
 import models.user
 from web.router import web_router
 from core.logging import setup_logging

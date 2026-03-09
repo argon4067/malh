@@ -8,7 +8,6 @@ from typing import Any
 
 from core.config import settings
 from models.transcript import Transcript
-from models.transcript_refine import TranscriptRefine
 from sqlalchemy.orm import Session
 
 
@@ -399,29 +398,17 @@ def refine_transcript_with_guardrails(raw_text: str, question_text: str | None =
     )
 
 
-def upsert_refine_result(db: Session, sel_id: int, result: RefineResult) -> TranscriptRefine:
+def upsert_refine_result(db: Session, sel_id: int, result: RefineResult) -> Transcript:
     transcript = db.query(Transcript).filter(Transcript.sel_id == sel_id).first()
     if transcript is None:
         raise RuntimeError(f"Transcript not found for sel_id={sel_id}.")
 
-    row = (
-        db.query(TranscriptRefine)
-        .filter(TranscriptRefine.transcript_id == transcript.transcript_id)
-        .first()
-    )
-    if row is None:
-        row = TranscriptRefine(transcript_id=transcript.transcript_id)
-        db.add(row)
-
-    row.r_raw_text = result.raw_text
-    row.r_refined_text = result.refined_text
-    row.r_edit_log = result.edit_log
-    row.r_refine_confidence = result.confidence
-    row.r_changed_ratio = int(round(result.changed_ratio * 100))
-    row.r_status = result.status
-    row.r_reject_reason = result.reject_reason
-    row.r_llm_model = result.llm_model
+    refined_text = (result.refined_text or "").strip()
+    if result.status == "APPLIED" and refined_text:
+        transcript.refined_text = refined_text
+    else:
+        transcript.refined_text = None
 
     db.commit()
-    db.refresh(row)
-    return row
+    db.refresh(transcript)
+    return transcript

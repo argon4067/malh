@@ -27,7 +27,6 @@ from models.question import Question
 from models.resume import Resume
 from models.select_question import SelectQuestion
 from models.transcript import Transcript
-from models.transcript_refine import TranscriptRefine
 from models.speech_score_summary import SpeechScoreSummary
 from models.speech_score_detail import SpeechScoreDetail
 from models.speech_feedback import SpeechFeedback
@@ -207,7 +206,6 @@ def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
         synchronize_session=False
     )
 
-    removed_transcript_refine = 0
     removed_transcript = 0
     removed_score_summary = 0
     removed_score_detail = 0
@@ -215,19 +213,6 @@ def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
     removed_answer_analysis = 0
 
     if sel_ids:
-        transcript_rows = (
-            db.query(Transcript.transcript_id)
-            .filter(Transcript.sel_id.in_(sel_ids))
-            .all()
-        )
-        transcript_ids = [int(row.transcript_id) for row in transcript_rows]
-        if transcript_ids:
-            removed_transcript_refine = (
-                db.query(TranscriptRefine)
-                .filter(TranscriptRefine.transcript_id.in_(transcript_ids))
-                .delete(synchronize_session=False)
-            )
-
         removed_transcript = (
             db.query(Transcript)
             .filter(Transcript.sel_id.in_(sel_ids))
@@ -264,7 +249,7 @@ def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
         "removed_audio": int(removed_audio),
         "removed_files": int(removed_files),
         "removed_transcript": int(removed_transcript),
-        "removed_transcript_refine": int(removed_transcript_refine),
+        "removed_transcript_refine": 0,
         "removed_score_summary": int(removed_score_summary),
         "removed_score_detail": int(removed_score_detail),
         "removed_speech_feedback": int(removed_speech_feedback),
@@ -1245,13 +1230,11 @@ async def result_transcript(
             AudioRecording.duration_sec.label("duration_sec"),
             AudioRecording.file_path.label("file_path"),
             Transcript.transcript_text.label("transcript_text"),
-            TranscriptRefine.r_refined_text.label("refined_text"),
-            TranscriptRefine.r_status.label("refine_status"),
+            Transcript.refined_text.label("refined_text"),
         )
         .join(Question, Question.qust_id == SelectQuestion.qust_id)
         .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
         .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
-        .outerjoin(TranscriptRefine, TranscriptRefine.transcript_id == Transcript.transcript_id)
         .filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id)
         .first()
     )
@@ -1270,7 +1253,7 @@ async def result_transcript(
             transcript_text = ""
 
     effective_text = transcript_text or "전사 텍스트가 아직 생성되지 않았습니다."
-    if row.refine_status == "APPLIED" and (row.refined_text or "").strip():
+    if (row.refined_text or "").strip():
         effective_text = row.refined_text
     audio_url = f"/storage/{row.file_path}" if (row.file_path or "").strip() else None
 
@@ -1913,17 +1896,18 @@ async def refine_transcript(
         ) from exc
 
     saved = upsert_refine_result(db=db, sel_id=sel_id, result=result)
+    applied = bool((saved.refined_text or "").strip())
     return {
         "message": "Transcript refine completed.",
         "inter_id": inter_id,
         "sel_id": sel_id,
-        "status": saved.r_status,
-        "applied": saved.r_status == "APPLIED",
-        "confidence": saved.r_refine_confidence,
-        "changed_ratio": saved.r_changed_ratio,
-        "reject_reason": saved.r_reject_reason,
-        "raw_text": saved.r_raw_text,
-        "refined_text": saved.r_refined_text,
+        "status": "APPLIED" if applied else "REJECTED",
+        "applied": applied,
+        "confidence": result.confidence,
+        "changed_ratio": int(round(result.changed_ratio * 100)),
+        "reject_reason": result.reject_reason,
+        "raw_text": row.transcript_text,
+        "refined_text": saved.refined_text,
     }
 
 
@@ -1940,15 +1924,9 @@ async def get_transcript_payload(
         db.query(
             SelectQuestion.sel_id.label("sel_id"),
             Transcript.transcript_text.label("raw_text"),
-            TranscriptRefine.r_refined_text.label("refined_text"),
-            TranscriptRefine.r_status.label("refine_status"),
-            TranscriptRefine.r_refine_confidence.label("refine_confidence"),
-            TranscriptRefine.r_changed_ratio.label("changed_ratio"),
-            TranscriptRefine.r_reject_reason.label("reject_reason"),
-            TranscriptRefine.r_llm_model.label("llm_model"),
+            Transcript.refined_text.label("refined_text"),
         )
         .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
-        .outerjoin(TranscriptRefine, TranscriptRefine.transcript_id == Transcript.transcript_id)
         .filter(SelectQuestion.inter_id == inter_id, SelectQuestion.sel_id == sel_id)
         .first()
     )
@@ -1961,7 +1939,8 @@ async def get_transcript_payload(
     raw_text = row.raw_text or ""
     effective_text = raw_text
     source = "raw"
-    if row.refine_status == "APPLIED" and (row.refined_text or "").strip():
+    is_refined_applied = bool((row.refined_text or "").strip())
+    if is_refined_applied:
         effective_text = row.refined_text
         source = "refined"
 
@@ -1974,11 +1953,11 @@ async def get_transcript_payload(
         "raw_text": raw_text,
         "refined_text": row.refined_text,
         "stt_meta": {
-            "refine_status": row.refine_status,
-            "refine_confidence": row.refine_confidence,
-            "changed_ratio": row.changed_ratio,
-            "reject_reason": row.reject_reason,
-            "llm_model": row.llm_model,
+            "refine_status": "APPLIED" if is_refined_applied else None,
+            "refine_confidence": None,
+            "changed_ratio": None,
+            "reject_reason": None,
+            "llm_model": None,
         },
     }
 
