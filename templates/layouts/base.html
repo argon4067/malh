@@ -1,9 +1,9 @@
-ï»¿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}ë§í•´ë­í•´{% endblock %}</title>
+  <title>{% block title %}¸»ÇØ¹¹ÇØ{% endblock %}</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"/>
   <link rel="stylesheet" href="/static/css/common/main.css" />
   {% block head %}{% endblock %}
@@ -11,29 +11,29 @@
 <body>
   <header>
     <div class="logo-container" onclick="location.href='/'">
-        <img src="/static/img/malh_logo.png" alt="ë§í•´ë­í•´" class="logo-img">
+        <img src="/static/img/malh_logo.png" alt="¸»ÇØ¹¹ÇØ" class="logo-img">
     </div>
     <nav>
         <ul>
-            <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">ë©”ì¸</a></li>
-            <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">ì„œë¹„ìŠ¤ ì†Œê°œ</a></li>
-            <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">ì´ìš© ë°©ë²•</a></li>
+            <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">¸ŞÀÎ</a></li>
+            <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">¼­ºñ½º ¼Ò°³</a></li>
+            <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">ÀÌ¿ë ¹æ¹ı</a></li>
         </ul>
     </nav>
     <div class="auth-links">
         {% block auth_links %}
             {% if request.cookies.get("login_user") %}
                 <span class="user-greeting">
-                    {{ request.cookies.get("login_user") }}ë‹˜ í™˜ì˜í•©ë‹ˆë‹¤
+                    {{ request.cookies.get("login_user") }}´Ô È¯¿µÇÕ´Ï´Ù
                 </span>
-                <a href="/auth/logout" class="logout-link">ë¡œê·¸ì•„ì›ƒ</a>
+                <a href="/auth/logout" class="logout-link">·Î±×¾Æ¿ô</a>
             {% else %}
-                <a href="/auth/login">ë¡œê·¸ì¸</a>
-                <a href="/auth/agree" class="btn-signup">íšŒì›ê°€ì…</a>
+                <a href="/auth/login">·Î±×ÀÎ</a>
+                <a href="/auth/agree" class="btn-signup">È¸¿ø°¡ÀÔ</a>
             {% endif %}
         {% endblock %}
     </div>
-    <button type="button" class="menu-toggle" id="menuToggle" aria-label="ë©”ë‰´ ì—´ê¸°" aria-expanded="false" aria-controls="mobileMenu">
+    <button type="button" class="menu-toggle" id="menuToggle" aria-label="¸Ş´º ¿­±â" aria-expanded="false" aria-controls="mobileMenu">
         <span></span>
         <span></span>
         <span></span>
@@ -41,9 +41,9 @@
     <div class="mobile-menu" id="mobileMenu">
         <nav class="mobile-nav">
             <ul>
-                <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">ë©”ì¸</a></li>
-                <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">ì„œë¹„ìŠ¤ ì†Œê°œ</a></li>
-                <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">ì´ìš© ë°©ë²•</a></li>
+                <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">¸ŞÀÎ</a></li>
+                <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">¼­ºñ½º ¼Ò°³</a></li>
+                <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">ÀÌ¿ë ¹æ¹ı</a></li>
             </ul>
         </nav>
     </div>
@@ -55,12 +55,12 @@
 
   <footer>
     <div class="footer-content">
-        <div class="footer-logo"><span>ë§í•´</span>ë­í•´</div>
-        <p class="copyright">Â© 2026 ë§í•´ë­í•´. All rights reserved.</p>
-        <p class="copyright"><strong>í”„ë¡œì íŠ¸ íŒ€</strong> | 0to1</p>
+        <div class="footer-logo"><span>¸»ÇØ</span>¹¹ÇØ</div>
+        <p class="copyright">¨Ï 2026 ¸»ÇØ¹¹ÇØ. All rights reserved.</p>
+        <p class="copyright"><strong>ÇÁ·ÎÁ§Æ® ÆÀ</strong> | 0to1</p>
         <p class="copyright"><strong>Developer</strong> | 0to1 Team</p>
-        <p class="copyright"><strong>ì£¼ì†Œ</strong> | ì„œìš¸ ê°•ë‚¨êµ¬ í…Œí—¤ë€ë¡œ 6ê¸¸ 12</p>
-        <p class="copyright"><strong>ì „í™”ë¬¸ì˜</strong> | 1588-0000  <strong>ì´ë©”ì¼</strong> | help@interview.or.kr</p>
+        <p class="copyright"><strong>ÁÖ¼Ò</strong> | ¼­¿ï °­³²±¸ Å×Çì¶õ·Î 6±æ 12</p>
+        <p class="copyright"><strong>ÀüÈ­¹®ÀÇ</strong> | 1588-0000  <strong>ÀÌ¸ŞÀÏ</strong> | help@interview.or.kr</p>
     </div>
   </footer>
 

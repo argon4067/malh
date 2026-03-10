@@ -1,6 +1,6 @@
-ï»¿{% extends "layouts/base.html" %}
+{% extends "layouts/base.html" %}
 
-{% block title %}ì´ë ¥ì„œ í”¼ë“œë°± - ë§í•´ë­í•´{% endblock %}
+{% block title %}ÀÌ·Â¼­ ÇÇµå¹é - ¸»ÇØ¹¹ÇØ{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/resume/recommend.css">
@@ -13,31 +13,31 @@
 <div class="feedback-container-wrapper">
     <div class="container">
         <div id="inputForm" class="content-card">
-            <h2 class="section-title">ì§ë¬´ ë§žì¶¤í˜• ì´ë ¥ì„œ ë¶„ì„</h2>
+            <h2 class="section-title">Á÷¹« ¸ÂÃãÇü ÀÌ·Â¼­ ºÐ¼®</h2>
             <div class="form-group">
-                <label for="resumeSelect">ì´ë ¥ì„œ ì„ íƒ</label>
+                <label for="resumeSelect">ÀÌ·Â¼­ ¼±ÅÃ</label>
                 <select id="resumeSelect">
-                    <option value="">ì´ë ¥ì„œë¥¼ ì„ íƒí•´ ì£¼ì„¸ìš”</option>
+                    <option value="">ÀÌ·Â¼­¸¦ ¼±ÅÃÇØ ÁÖ¼¼¿ä</option>
                     {% if resumes %}{% for resume in resumes %}
                     <option value="{{ resume.resume_id }}">{{ resume.resume_file_name }}</option>
                     {% endfor %}{% endif %}
                 </select>
             </div>
             <div class="form-group">
-                <label for="companyUrl">íšŒì‚¬ URL</label>
+                <label for="companyUrl">È¸»ç URL</label>
                 <input type="text" id="companyUrl" placeholder="https://www.hightechmember.com/...">
             </div>
             <div class="form-group">
-                <label for="companyStack">ìš”êµ¬ ê¸°ìˆ  ìŠ¤íƒ</label>
-                <input type="text" id="companyStack" placeholder="Java, React ë“±">
+                <label for="companyStack">¿ä±¸ ±â¼ú ½ºÅÃ</label>
+                <input type="text" id="companyStack" placeholder="Java, React µî">
             </div>
-            <button type="button" class="analyze-btn" onclick="startAnalysis()">ë¶„ì„ ì‹œìž‘í•˜ê¸°</button>
+            <button type="button" class="analyze-btn" onclick="startAnalysis()">ºÐ¼® ½ÃÀÛÇÏ±â</button>
         </div>
 
         <div id="loadingArea" class="content-card" style="display: none;">
             <div class="loading-container">
-                <h3 class="loading-title">ë¶„ì„ ì§„í–‰ ì¤‘</h3>
-                <p class="loading-desc">ë°ì´í„° ì •í•©ì„± ê²€ì¦ ë° ë¶„ì„ì„ ì§„í–‰í•˜ê³  ìžˆìŠµë‹ˆë‹¤.</p>
+                <h3 class="loading-title">ºÐ¼® ÁøÇà Áß</h3>
+                <p class="loading-desc">µ¥ÀÌÅÍ Á¤ÇÕ¼º °ËÁõ ¹× ºÐ¼®À» ÁøÇàÇÏ°í ÀÖ½À´Ï´Ù.</p>
                 <div class="loading-track">
                     <div class="loading-indeterminate"></div>
                 </div>
@@ -45,7 +45,7 @@
         </div>
 
         <div id="resultArea" class="content-card" style="display: none;">
-            <h2 class="section-title">ë¶„ì„ ê²°ê³¼ ë¦¬í¬íŠ¸</h2>
+            <h2 class="section-title">ºÐ¼® °á°ú ¸®Æ÷Æ®</h2>
 
             <div id="compatibilityWarning" style="display:none; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ddd;">
                 <p id="warningText" style="margin:0; font-weight:bold;"></p>
@@ -53,16 +53,16 @@
 
             <div class="analysis-result">
                 <div class="feedback-box good">
-                    <h4>ê°•ì  ë° ì í•© ìš”ì¸</h4>
+                    <h4>°­Á¡ ¹× ÀûÇÕ ¿äÀÎ</h4>
                     <div id="strengthsContent"></div>
                 </div>
                 <div class="feedback-box bad">
-                    <h4>ë³´ì™„ ê¶Œìž¥ ì‚¬í•­</h4>
+                    <h4>º¸¿Ï ±ÇÀå »çÇ×</h4>
                     <div id="improvementsContent"></div>
                 </div>
             </div>
 
-            <div class="btn-group"><button class="btn btn-retry" onclick="location.reload()">ë‹¤ì‹œ ë¶„ì„í•˜ê¸°</button></div>
+            <div class="btn-group"><button class="btn btn-retry" onclick="location.reload()">´Ù½Ã ºÐ¼®ÇÏ±â</button></div>
         </div>
     </div>
 </div>
@@ -75,7 +75,7 @@
     const hasResumes = {{ 'true' if has_resumes else 'false' }};
     window.addEventListener('DOMContentLoaded', () => {
         if (!hasResumes) {
-            alert('ë“±ë¡ëœ ì´ë ¥ì„œê°€ ì—†ìŠµë‹ˆë‹¤.');
+            alert('µî·ÏµÈ ÀÌ·Â¼­°¡ ¾ø½À´Ï´Ù.');
             window.location.href = '/resumes';
         }
     });

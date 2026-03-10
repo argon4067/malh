@@ -1,6 +1,6 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}이력서 관리 - 말해뭐해{% endblock %}
+{% block title %}?�력??관�?- 말해뭐해{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/resume/resume.css">
@@ -9,9 +9,9 @@
 {% block content %}
 <nav class="sub-nav">
     <ul>
-        <li><a href="/resumes" class="active">이력서 관리</a></li>
-        <li><a href="/account/password">비밀번호 변경</a></li>
-        <li><a href="/account/withdraw">회원탈퇴</a></li>
+        <li><a href="/resumes" class="active">?�력??관�?/a></li>
+        <li><a href="/account/password">비�?번호 변�?/a></li>
+        <li><a href="/account/withdraw">?�원?�퇴</a></li>
     </ul>
 </nav>
 
@@ -20,18 +20,18 @@
         <div id="dashboard-view">
             <div class="dashboard-header">
                 <div class="header-left">
-                    <h2>이력서 관리</h2>
-                    <p id="total-count-txt">{{ resumes|length }}개의 이력서가 등록되어 있습니다.</p>
+                    <h2>?�력??관�?/h2>
+                    <p id="total-count-txt">{{ resumes|length }}개의 ?�력?��? ?�록?�어 ?�습?�다.</p>
                 </div>
                 <button class="add-btn" id="go-upload-btn">
-                    <span>+</span> 이력서 등록
+                    <span>+</span> ?�력???�록
                 </button>
             </div>
 
             <input type="hidden" id="modelInput" value="{{ default_model }}">
 
             <div class="resume-slider-section">
-                <button type="button" class="slider-btn slider-btn-prev" id="resumePrevBtn" aria-label="이전">
+                <button type="button" class="slider-btn slider-btn-prev" id="resumePrevBtn" aria-label="?�전">
                     &#10094;
                 </button>
 
@@ -41,7 +41,7 @@
                             {% for resume in resumes %}
                             <div class="resume-card">
                                 <div class="card-header">
-                                    <div class="file-icon">📄</div>
+                                    <div class="file-icon">?��</div>
 
                                     <div class="file-info">
                                         <div class="file-name">{{ resume.resume_file_name }}</div>
@@ -49,7 +49,7 @@
                                             {{ resume.resume_file_type }}
                                             {% if resume.resume_file_size %}
                                                 {% set size = resume.resume_file_size | int %}
-                                                •
+                                                ??
                                                 {% if size < 1024 * 1024 %}
                                                     {{ (size / 1024) | round(1) }}KB
                                                 {% else %}
@@ -63,33 +63,33 @@
                                         action="/resumes/{{ resume.resume_id }}/delete"
                                         method="post"
                                         class="card-delete-form"
-                                        onsubmit="return confirm('이 이력서와 분석 결과를 삭제하시겠습니까?');"
+                                        onsubmit="return confirm('???�력?��? 분석 결과�???��?�시겠습?�까?');"
                                     >
-                                        <button type="submit" class="delete-btn">🗑️</button>
+                                        <button type="submit" class="delete-btn">?���?/button>
                                     </form>
                                 </div>
 
                                 <div class="divider"></div>
 
                                 <div class="info-row">
-                                    <span class="info-label">분석 상태</span>
+                                    <span class="info-label">분석 ?�태</span>
                                     <span class="info-value" style="color:var(--primary-orange)">
                                         {% if resume.resume_status == "DONE" %}
-                                            분석 완료
+                                            분석 ?�료
                                         {% elif resume.resume_status == "FAILED" %}
-                                            분석 실패
+                                            분석 ?�패
                                         {% elif resume.resume_status in ["CLASSIFYING", "STRUCTURING", "KEYWORDS_EXTRACTING", "QUESTION_GENERATING"] %}
-                                            분석 중
+                                            분석 �?
                                         {% elif resume.resume_status == "KEYWORDS_DONE" %}
-                                            질문 생성 대기
+                                            질문 ?�성 ?��?
                                         {% else %}
-                                            분석 대기중
+                                            분석 ?�기중
                                         {% endif %}
                                     </span>
                                 </div>
 
                                 <div class="info-row">
-                                    <span class="info-label">포지션</span>
+                                    <span class="info-label">?��???/span>
                                     <span class="info-value">
                                         {% if resume.structured and resume.structured.structured_position %}
                                             {{ resume.structured.structured_position }}
@@ -121,17 +121,17 @@
                                             <span class="tag tag-more">+{{ ns.skill_keywords|length - 3 }}</span>
                                         {% endif %}
                                     {% else %}
-                                        <span class="tag tag-more">분석 필요</span>
+                                        <span class="tag tag-more">분석 ?�요</span>
                                     {% endif %}
                                 </div>
 
                                 <div class="stats-area">
                                     <div class="stats-row">
-                                        <span>연습 횟수</span>
-                                        <span class="stats-val">0회</span>
+                                        <span>?�습 ?�수</span>
+                                        <span class="stats-val">0??/span>
                                     </div>
                                     <div class="stats-row">
-                                        <span>마지막 사용</span>
+                                        <span>마�?�??�용</span>
                                         <span>
                                             {% if resume.resume_created_at %}
                                                 {{ resume.resume_created_at.strftime('%Y-%m-%d') }}
@@ -143,17 +143,17 @@
                                 </div>
 
                                 <button class="detail-btn" onclick="location.href='/resumes/{{ resume.resume_id }}'">
-                                    상세 보기 &gt;
+                                    ?�세 보기 &gt;
                                 </button>
                             </div>
                             {% endfor %}
                         {% else %}
                             <div class="resume-card">
                                 <div class="card-header">
-                                    <div class="file-icon">📄</div>
+                                    <div class="file-icon">?��</div>
                                     <div class="file-info">
-                                        <div class="file-name">등록된 이력서가 없습니다.</div>
-                                        <div class="file-meta">새 이력서를 등록해 주세요.</div>
+                                        <div class="file-name">?�록???�력?��? ?�습?�다.</div>
+                                        <div class="file-meta">???�력?��? ?�록??주세??</div>
                                     </div>
                                 </div>
                             </div>
@@ -161,7 +161,7 @@
                     </div>
                 </div>
 
-                <button type="button" class="slider-btn slider-btn-next" id="resumeNextBtn" aria-label="다음">
+                <button type="button" class="slider-btn slider-btn-next" id="resumeNextBtn" aria-label="?�음">
                     &#10095;
                 </button>
             </div>
@@ -169,15 +169,15 @@
 
         <div id="upload-view" style="display: none;">
             <div class="upload-header">
-                <button class="back-btn" id="back-to-list-btn">← 돌아가기</button>
-                <h2>새 이력서 등록</h2>
+                <button class="back-btn" id="back-to-list-btn">???�아가�?/button>
+                <h2>???�력???�록</h2>
             </div>
 
             <div class="upload-container">
                 <div class="upload-box" id="dropZone">
-                    <div class="upload-icon">📁</div>
-                    <p class="upload-text">파일을 이 곳으로 드래그하거나 클릭하세요</p>
-                    <p class="upload-sub">PDF, DOCX (최대 10MB)</p>
+                    <div class="upload-icon">?��</div>
+                    <p class="upload-text">?�일????곳으�??�래그하거나 ?�릭?�세??/p>
+                    <p class="upload-sub">PDF, DOCX (최�? 10MB)</p>
                 </div>
 
                 <input type="file" id="fileInput" hidden accept=".pdf,.docx">

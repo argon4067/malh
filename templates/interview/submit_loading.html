@@ -3,14 +3,14 @@
 {% block title %}분석 진행 - 말해봐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/interview/submit_loading.css?v=20260306">
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
 {% endblock %}
 
 {% block content %}
 <div class="submit-loading-wrapper">
     <div class="loading-card">
-        <h2 class="loading-title">제출 분석 진행 중</h2>
-        <p class="loading-desc" id="loadingMessage">작업을 시작합니다.</p>
+        <h2 class="loading-title">?�출 분석 진행 �?/h2>
+        <p class="loading-desc" id="loadingMessage">?�업???�작?�니??</p>
         <div class="progress-track">
             <div id="loadingProgressBar" class="progress-fill"></div>
         </div>
@@ -28,5 +28,5 @@
         sessionId: {{ session_id }}
     };
 </script>
-<script src="/static/js/interview/submit_loading.js?v=20260307"></script>
+<script src="/static/js/interview/submit_loading.js"></script>
 {% endblock %}

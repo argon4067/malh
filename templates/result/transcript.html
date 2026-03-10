@@ -1,15 +1,15 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}컨텍스트 분석 - 말해뭐해{% endblock %}
+{% block title %}컨텍?�트 분석 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/result/text.css?v=20260313">
+<link rel="stylesheet" href="/static/css/result/text.css">
 {% endblock %}
 
 {% block content %}
 <div class="transcript-container-wrapper">
     <div class="container">
-        <h2 class="page-title">컨텍스트 분석</h2>
+        <h2 class="page-title">컨텍?�트 분석</h2>
 
         <div class="question-box">
             <span class="q-badge">Question {{ transcript_item.sel_order_no }}</span>
@@ -17,8 +17,8 @@
         </div>
 
         <div class="audio-player" data-duration="{{ transcript_item.duration_sec }}">
-            <button type="button" id="playBtn" class="play-btn" aria-label="재생/일시정지">▶</button>
-            <div id="progressContainer" class="progress-container" role="slider" aria-label="재생 위치">
+            <button type="button" id="playBtn" class="play-btn" aria-label="?�생/?�시?��?">??/button>
+            <div id="progressContainer" class="progress-container" role="slider" aria-label="?�생 ?�치">
                 <div id="progressFill" class="progress-fill"></div>
                 <div id="progressHead" class="progress-head"></div>
             </div>
@@ -27,11 +27,11 @@
         {% if transcript_item.audio_url %}
         <audio id="answerAudio" preload="metadata" src="{{ transcript_item.audio_url }}"></audio>
         {% else %}
-        <div class="time-display" style="width:auto;">녹음 파일이 없어 텍스트 시뮬레이션 모드로 동작합니다.</div>
+        <div class="time-display" style="width:auto;">?�음 ?�일???�어 ?�스???��??�이??모드�??�작?�니??</div>
         {% endif %}
 
         <div class="script-container">
-            <div class="speaker-label">면접 답변</div>
+            <div class="speaker-label">면접 ?��?</div>
             <div id="scriptContent" class="script-content" data-duration="{{ transcript_item.duration_sec }}">
                 {{ transcript_item.transcript_text }}
             </div>
@@ -39,15 +39,15 @@
 
         <section class="text-score-card">
             <div class="score-head">
-                <h3 class="score-title">텍스트 점수 분석</h3>
-                <p class="score-subtitle">답변 텍스트를 항목별로 정량 평가한 결과입니다.</p>
+                <h3 class="score-title">?�스???�수 분석</h3>
+                <p class="score-subtitle">?��? ?�스?��? ??��별로 ?�량 ?��???결과?�니??</p>
             </div>
 
             <div class="score-metric-grid">
                 <article class="metric-card">
                     <div class="metric-top">
-                        <span class="metric-name">질문-답변 맥락 적합</span>
-                        <span class="metric-score">{% if transcript_item.relevance_score is not none %}{{ transcript_item.relevance_score }}점{% else %}-{% endif %}</span>
+                        <span class="metric-name">질문-?��? 맥락 ?�합</span>
+                        <span class="metric-score">{% if transcript_item.relevance_score is not none %}{{ transcript_item.relevance_score }}??% else %}-{% endif %}</span>
                     </div>
                     <div class="metric-track">
                         <div class="metric-fill" style="width:{% if transcript_item.relevance_score is not none %}{{ transcript_item.relevance_score }}{% else %}0{% endif %}%;"></div>
@@ -56,8 +56,8 @@
 
                 <article class="metric-card">
                     <div class="metric-top">
-                        <span class="metric-name">질문이 요구하는 요소 적합</span>
-                        <span class="metric-score">{% if transcript_item.coverage_score is not none %}{{ transcript_item.coverage_score }}점{% else %}-{% endif %}</span>
+                        <span class="metric-name">질문???�구?�는 ?�소 ?�합</span>
+                        <span class="metric-score">{% if transcript_item.coverage_score is not none %}{{ transcript_item.coverage_score }}??% else %}-{% endif %}</span>
                     </div>
                     <div class="metric-track">
                         <div class="metric-fill" style="width:{% if transcript_item.coverage_score is not none %}{{ transcript_item.coverage_score }}{% else %}0{% endif %}%;"></div>
@@ -66,8 +66,8 @@
 
                 <article class="metric-card">
                     <div class="metric-top">
-                        <span class="metric-name">구체성</span>
-                        <span class="metric-score">{% if transcript_item.specificity_score is not none %}{{ transcript_item.specificity_score }}점{% else %}-{% endif %}</span>
+                        <span class="metric-name">구체??/span>
+                        <span class="metric-score">{% if transcript_item.specificity_score is not none %}{{ transcript_item.specificity_score }}??% else %}-{% endif %}</span>
                     </div>
                     <div class="metric-track">
                         <div class="metric-fill" style="width:{% if transcript_item.specificity_score is not none %}{{ transcript_item.specificity_score }}{% else %}0{% endif %}%;"></div>
@@ -77,7 +77,7 @@
                 <article class="metric-card">
                     <div class="metric-top">
                         <span class="metric-name">근거</span>
-                        <span class="metric-score">{% if transcript_item.evidence_score is not none %}{{ transcript_item.evidence_score }}점{% else %}-{% endif %}</span>
+                        <span class="metric-score">{% if transcript_item.evidence_score is not none %}{{ transcript_item.evidence_score }}??% else %}-{% endif %}</span>
                     </div>
                     <div class="metric-track">
                         <div class="metric-fill" style="width:{% if transcript_item.evidence_score is not none %}{{ transcript_item.evidence_score }}{% else %}0{% endif %}%;"></div>
@@ -86,8 +86,8 @@
 
                 <article class="metric-card">
                     <div class="metric-top">
-                        <span class="metric-name">이력서 적합성</span>
-                        <span class="metric-score">{% if transcript_item.consistency_score is not none %}{{ transcript_item.consistency_score }}점{% else %}-{% endif %}</span>
+                        <span class="metric-name">?�력???�합??/span>
+                        <span class="metric-score">{% if transcript_item.consistency_score is not none %}{{ transcript_item.consistency_score }}??% else %}-{% endif %}</span>
                     </div>
                     <div class="metric-track">
                         <div class="metric-fill" style="width:{% if transcript_item.consistency_score is not none %}{{ transcript_item.consistency_score }}{% else %}0{% endif %}%;"></div>
@@ -100,7 +100,7 @@
         <section class="speech-score-section">
             <div class="speech-section-head">
                 <h3 class="speech-section-title">발화 분석 (STT)</h3>
-                <p class="speech-section-desc">음성 발화 지표를 기반으로 한 정량 분석 결과입니다.</p>
+                <p class="speech-section-desc">?�성 발화 지?��? 기반?�로 ???�량 분석 결과?�니??</p>
             </div>
 
             <div class="score-grid">
@@ -108,41 +108,41 @@
                     <div class="chart-circle c-fluency" style="background: conic-gradient(var(--primary-navy) {{ transcript_item.speech_score.fluency_score }}%, #eee 0);">
                         <span class="score-value">{{ transcript_item.speech_score.fluency_score }}</span>
                     </div>
-                    <button type="button" class="help-text-trigger score-label" data-help-key="fluency_score">유창성 점수</button>
+                    <button type="button" class="help-text-trigger score-label" data-help-key="fluency_score">?�창???�수</button>
                 </div>
                 <div class="score-card">
                     <div class="chart-circle c-clarity" style="background: conic-gradient(#2CB6E8 {{ transcript_item.speech_score.clarity_score }}%, #eee 0);">
                         <span class="score-value">{{ transcript_item.speech_score.clarity_score }}</span>
                     </div>
-                    <button type="button" class="help-text-trigger score-label" data-help-key="clarity_score">명료성 점수</button>
+                    <button type="button" class="help-text-trigger score-label" data-help-key="clarity_score">명료???�수</button>
                 </div>
                 <div class="score-card">
                     <div class="chart-circle c-structure" style="background: conic-gradient(#9055FF {{ transcript_item.speech_score.structure_score }}%, #eee 0);">
                         <span class="score-value">{{ transcript_item.speech_score.structure_score }}</span>
                     </div>
-                    <button type="button" class="help-text-trigger score-label" data-help-key="structure_score">발화 구조 점수</button>
+                    <button type="button" class="help-text-trigger score-label" data-help-key="structure_score">발화 구조 ?�수</button>
                 </div>
                 <div class="score-card">
                     <div class="chart-circle c-length" style="background: conic-gradient(var(--primary-orange) {{ transcript_item.speech_score.length_score }}%, #eee 0);">
                         <span class="score-value">{{ transcript_item.speech_score.length_score }}</span>
                     </div>
-                    <button type="button" class="help-text-trigger score-label" data-help-key="length_score">답변 길이 점수</button>
+                    <button type="button" class="help-text-trigger score-label" data-help-key="length_score">?��? 길이 ?�수</button>
                 </div>
             </div>
 
             <div class="analysis-section">
                 <div class="section-card">
-                    <div class="card-header header-structure"><span>유창성</span></div>
+                    <div class="card-header header-structure"><span>?�창??/span></div>
                     <div class="metrics-grid">
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="wpm">발화 속도</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="wpm">발화 ?�도</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.wpm }} <span class="metric-sub">wpm</span></div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="speed_variation">속도 변동</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="speed_variation">?�도 변??/button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.speed_variation }}</div>
                         </div>
@@ -154,13 +154,13 @@
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="repetition_usage">반복어 비율</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="repetition_usage">반복??비율</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.repetition_ratio }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="pause_segment_length">침묵 구간 길이(최대)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="pause_segment_length">침묵 구간 길이(최�?)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.max_pause_sec }}s</div>
                         </div>
@@ -174,23 +174,23 @@
                 </div>
 
                 <div class="section-card">
-                    <div class="card-header header-length"><span>명료성</span></div>
+                    <div class="card-header header-length"><span>명료??/span></div>
                     <div class="metrics-grid">
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="stt_accuracy">STT 정확도</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="stt_accuracy">STT ?�확??/button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.stt_accuracy }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="avg_stt_confidence">평균 STT 신뢰도</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="avg_stt_confidence">?�균 STT ?�뢰??/button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.avg_stt_confidence }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="pronunciation_clarity">발음 분명도(proxy)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="pronunciation_clarity">발음 분명??proxy)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.pronunciation_clarity }}</div>
                         </div>
@@ -202,13 +202,13 @@
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="volume_stability">음량 안정성(proxy)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="volume_stability">?�량 ?�정??proxy)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.volume_stability }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="clipping_ratio">클리핑 비율(proxy)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="clipping_ratio">?�리??비율(proxy)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.clipping_ratio }}</div>
                         </div>
@@ -222,37 +222,37 @@
                     <div class="metrics-grid">
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_length_distribution">문장 길이 분포(표준편차)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_length_distribution">문장 길이 분포(?��??�차)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.sentence_len_std }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="discourse_segmentation">의미 단위 분절(문장 수)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="discourse_segmentation">?��? ?�위 분절(문장 ??</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.sentence_count }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="incomplete_unit_ratio">불완전 의미 단위 비율</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="incomplete_unit_ratio">불완???��? ?�위 비율</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.repetition_ratio }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="connective_usage">연결어 사용 밀도</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="connective_usage">?�결???�용 밀??/button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.connective_density }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_count">문장 수</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="sentence_count">문장 ??/button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.sentence_count }}</div>
                         </div>
                         <div class="metric-box">
                             <div class="metric-label-row">
-                                <button type="button" class="help-text-trigger metric-label" data-help-key="units_per_sentence">문장당 의미 단위(평균 길이)</button>
+                                <button type="button" class="help-text-trigger metric-label" data-help-key="units_per_sentence">문장???��? ?�위(?�균 길이)</button>
                             </div>
                             <div class="metric-value">{{ transcript_item.speech_score.metrics.avg_sentence_len }}</div>
                         </div>
@@ -260,25 +260,25 @@
                 </div>
 
                 <div class="section-card">
-                    <div class="card-header header-length"><span>답변 길이 평가</span></div>
+                    <div class="card-header header-length"><span>?��? 길이 ?��?</span></div>
                     <div class="length-status-box">
                         {% if transcript_item.speech_score.metrics.length_adequacy_score >= 70 %}
-                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">적정 범위</button>
+                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">?�정 범위</button>
                         {% elif transcript_item.speech_score.metrics.length_adequacy_score >= 40 %}
-                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">다소 짧거나 김</button>
+                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">?�소 짧거??김</button>
                         {% else %}
-                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">범위 이탈</button>
+                        <button type="button" class="help-text-trigger status-text" data-help-key="length_adequacy">범위 ?�탈</button>
                         {% endif %}
                     </div>
                     <ul class="length-detail-list">
                         <li class="length-detail-item">
-                            <span class="ld-label">총 단어 수</span><span class="ld-value">{{ transcript_item.speech_score.metrics.word_count }}개</span>
+                            <span class="ld-label">�??�어 ??/span><span class="ld-value">{{ transcript_item.speech_score.metrics.word_count }}�?/span>
                         </li>
                         <li class="length-detail-item">
-                            <span class="ld-label">답변 길이</span><span class="ld-value">{{ transcript_item.speech_score.metrics.duration_sec }}초</span>
+                            <span class="ld-label">?��? 길이</span><span class="ld-value">{{ transcript_item.speech_score.metrics.duration_sec }}�?/span>
                         </li>
                         <li class="length-detail-item">
-                            <button type="button" class="help-text-trigger ld-label" data-help-key="avg_sentence_length">문장 평균 길이</button><span class="ld-value">{{ transcript_item.speech_score.metrics.avg_sentence_len }}</span>
+                            <button type="button" class="help-text-trigger ld-label" data-help-key="avg_sentence_length">문장 ?�균 길이</button><span class="ld-value">{{ transcript_item.speech_score.metrics.avg_sentence_len }}</span>
                         </li>
                     </ul>
                 </div>
@@ -286,31 +286,31 @@
         </section>
         {% else %}
         <div class="report-box analysis">
-            <h3 class="report-header">발화 분석 대기</h3>
-            <div class="report-content">발화 지표가 아직 없습니다. 먼저 제출 분석을 완료해 주세요.</div>
+            <h3 class="report-header">발화 분석 ?��?/h3>
+            <div class="report-content">발화 지?��? ?�직 ?�습?�다. 먼�? ?�출 분석???�료??주세??</div>
         </div>
         {% endif %}
 
-        <a href="/interviews/{{ session_id }}/results" class="back-link">← 목록으로</a>
+        <a href="/interviews/{{ session_id }}/results" class="back-link">??목록?�로</a>
     </div>
 </div>
 
 <div id="metricHelpModal" class="help-modal hidden" aria-hidden="true">
     <div class="help-modal-overlay" data-help-close></div>
     <div class="help-modal-card" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
-        <button type="button" class="help-modal-close" data-help-close aria-label="도움말 닫기">×</button>
+        <button type="button" class="help-modal-close" data-help-close aria-label="?��?�??�기">×</button>
         <h3 id="helpModalTitle" class="help-modal-title"></h3>
 
         <div class="help-block">
-            <h4>의미</h4>
+            <h4>?��?</h4>
             <p id="helpModalMeaning"></p>
         </div>
         <div class="help-block">
-            <h4>해석 기준</h4>
+            <h4>?�석 기�?</h4>
             <ul id="helpModalCriteria"></ul>
         </div>
         <div class="help-block">
-            <h4>평가 관점</h4>
+            <h4>?��? 관??/h4>
             <p id="helpModalEvaluation"></p>
         </div>
         <div class="help-block">
@@ -322,6 +322,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/result/text.js?v=20260312"></script>
-<script src="/static/js/result/analysis_stt.js?v=20260312"></script>
+<script src="/static/js/result/text.js"></script>
+<script src="/static/js/result/transcript.js"></script>
 {% endblock %}
