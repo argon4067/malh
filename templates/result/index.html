@@ -37,27 +37,42 @@
                             <section class="summary-card">
                                 <div class="card-head">
                                     <h3 class="card-title">발화 피드백</h3>
-                                    <span
-                                        class="status-chip{% if item.speech_ready %} ready{% endif %}"
+                                    <button
+                                        type="button"
+                                        class="status-chip status-action{% if item.speech_ready %} ready{% endif %}"
                                         data-speech-status
+                                        data-run-speech-feedback
                                         data-session-id="{{ session_id }}"
                                         data-sel-id="{{ item.sel_id }}"
+                                        {% if not item.speech_ready %}disabled{% endif %}
                                     >
-                                        대기 중
-                                    </span>
+                                        {% if item.speech_ready %}준비됨{% else %}대기 중{% endif %}
+                                    </button>
                                 </div>
+                                <p class="card-desc">발화 속도, 명료도, 구조, 길이 지표를 기반으로 LLM이 발화 피드백을 생성합니다.</p>
                                 <div class="placeholder-box" data-speech-feedback-output>
-                                    카드를 펼치면 발화 피드백이 자동으로 생성됩니다.
+                                    {% if item.speech_ready %}
+                                    카드를 펼치면 발화 피드백이 자동으로 생성됩니다. 다시 생성하려면 상태 버튼을 누르세요.
+                                    {% else %}
+                                    발화 점수 데이터가 아직 없어 실행할 수 없습니다.
+                                    {% endif %}
                                 </div>
                             </section>
 
                             <section class="summary-card">
                                 <div class="card-head">
                                     <h3 class="card-title">컨텍스트 피드백</h3>
-                                    <span class="status-chip">연결 예정</span>
+                                    <span class="status-chip{% if item.context_ready %} ready{% endif %}">
+                                        {% if item.context_ready %}준비됨{% else %}연결 예정{% endif %}
+                                    </span>
                                 </div>
+                                <p class="card-desc">질문 적합성, 근거, 구체성, 일관성 지표를 기반으로 한 컨텍스트 피드백 영역입니다.</p>
                                 <div class="placeholder-box">
+                                    {% if item.context_ready %}
+                                    컨텍스트 분석 데이터는 준비되어 있지만, 목록 화면에서는 아직 요약 텍스트를 별도 호출하지 않습니다.
+                                    {% else %}
                                     컨텍스트 피드백 LLM은 아직 연결하지 않았습니다.
+                                    {% endif %}
                                 </div>
                             </section>
                         </div>

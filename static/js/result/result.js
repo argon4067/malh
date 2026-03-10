@@ -2,6 +2,7 @@
  * result.js - 결과 목록 아코디언 + 카드 펼침 시 자동 LLM 피드백 생성
  */
 
+
 $(function () {
     function setExpanded($card, expanded) {
         const $toggle = $card.find("[data-toggle-card]");
@@ -12,7 +13,7 @@ $(function () {
     }
 
     async function streamToBox(url, formData, $status, $output) {
-        $status.removeClass("ready").text("생성 중...");
+        $status.removeClass("ready").text("생성 중..");
         $output.text("");
 
         const response = await fetch(url, {
@@ -61,6 +62,7 @@ $(function () {
         formData.append("force", "1");
 
         try {
+            $status.prop("disabled", true);
             await streamToBox(
                 `/api/interviews/${sessionId}/questions/${selId}/speech-feedback/stream`,
                 formData,
@@ -68,9 +70,10 @@ $(function () {
                 $output,
             );
         } catch (error) {
-            $status.removeClass("ready").text("오류");
+            $status.removeClass("ready").text("?오류");
             $output.text(error.message || "발화 피드백 생성에 실패했습니다.");
         } finally {
+            $status.prop("disabled", false);
             $card.data("speechLoading", false);
         }
     }
@@ -83,8 +86,13 @@ $(function () {
         $(".result-card").each(function () {
             const $card = $(this);
             const $toggle = $card.find("[data-toggle-card]");
+            const $runButton = $card.find("[data-run-speech-feedback]");
             $toggle.find("a, button.btn-analysis").on("click", function (e) {
                 e.stopPropagation();
+            });
+            $runButton.on("click", function (e) {
+                e.stopPropagation();
+                void runSpeechFeedback($card);
             });
             setExpanded($card, false);
             $toggle.on("click", function () {

@@ -13,12 +13,34 @@ async function pollProgress() {
     const $count = $("#loadingCount");
     const $message = $("#loadingMessage");
 
+    const buildProgressMessage = (data) => {
+        const total = Number(data.total || 0);
+        const completed = Number(data.completed || 0);
+        const failedCount = Number(data.failed_count || 0);
+
+        if (data.done) {
+            return data.ok
+                ? "분석이 완료되었습니다. 결과 화면으로 이동합니다."
+                : `분석 중 오류가 발생했습니다. 실패 ${failedCount}건`;
+        }
+
+        if (!total) {
+            return "분석 준비 중입니다.";
+        }
+
+        if (completed <= 0) {
+            return "답변 분석을 시작합니다.";
+        }
+
+        return `답변 ${completed}/${total} 분석 중입니다.`;
+    };
+
     const tick = async () => {
         try {
             const response = await fetch(`/api/interviews/${sessionId}/submit-analysis/progress`);
             if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
-                throw new Error(data.detail || "진행률 조회 실패");
+                throw new Error(data.detail || "진행 조회에 실패했습니다.");
             }
             const data = await response.json();
 
@@ -30,7 +52,7 @@ async function pollProgress() {
             $bar.css("width", `${percent}%`);
             $percent.text(`${percent}%`);
             $count.text(`${completed}/${total}`);
-            $message.text(data.message || "분석 중...");
+            $message.text(buildProgressMessage(data));
 
             if (data.done) {
                 if (data.ok) {

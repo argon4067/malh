@@ -114,6 +114,16 @@
     padding: 8px 12px;
 }
 
+.status-action {
+    border: 0;
+    cursor: pointer;
+}
+
+.status-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
 .status-chip.ready {
     color: #0f6d3f;
     background: #e8f6ee;

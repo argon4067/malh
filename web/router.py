@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import threading
 import time
 import logging
@@ -304,14 +304,12 @@ def _load_analysis_bundle(db: Session, session_id: int, sel_id: int):
             InterviewSession,
             Resume,
             Transcript,
-            TranscriptRefine,
             AnswerAnalysis,
         )
         .join(Question, Question.qust_id == SelectQuestion.qust_id)
         .join(InterviewSession, InterviewSession.inter_id == SelectQuestion.inter_id)
         .join(Resume, Resume.resume_id == InterviewSession.resume_id)
         .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
-        .outerjoin(TranscriptRefine, TranscriptRefine.transcript_id == Transcript.transcript_id)
         .outerjoin(AnswerAnalysis, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
         .filter(
             SelectQuestion.inter_id == session_id,
@@ -320,111 +318,6 @@ def _load_analysis_bundle(db: Session, session_id: int, sel_id: int):
         .first()
     )
 
-
-def _render_analysis_text_page(
-    request: Request,
-    db: Session,
-    session_id: int,
-    sel_id: int,
-):
-    bundle = _load_analysis_bundle(db=db, session_id=session_id, sel_id=sel_id)
-
-    if not bundle:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="분석 결과를 찾을 수 없습니다.",
-        )
-
-    select_question, question, interview_session, resume, transcript, refine, analysis = bundle
-
-    refined_text = ""
-    if refine and (refine.r_refined_text or "").strip():
-        refined_text = refine.r_refined_text.strip()
-
-    raw_text = ""
-    if transcript and (transcript.transcript_text or "").strip():
-        raw_text = transcript.transcript_text.strip()
-
-    effective_text = refined_text or raw_text or "분석할 답변 텍스트가 없습니다."
-
-    # 분석이 없으면 페이지 진입 시 1회 자동 생성 시도
-    if analysis is None and effective_text != "분석할 답변 텍스트가 없습니다.":
-        try:
-            analyze_answer_by_sel_id(db=db, sel_id=sel_id, model="gpt-4o-mini")
-            bundle = _load_analysis_bundle(db=db, session_id=session_id, sel_id=sel_id)
-            if bundle:
-                select_question, question, interview_session, resume, transcript, refine, analysis = bundle
-        except Exception as exc:
-            logger.warning(
-                "ANSWER_ANALYSIS_ON_DEMAND_FAILED session_id=%s sel_id=%s error=%s",
-                session_id,
-                sel_id,
-                exc,
-            )
-
-    relevance_score = int(analysis.anal_relevance_score) if analysis else 0
-    coverage_score = int(analysis.anal_coverage_score) if analysis else 0
-    specificity_score = int(analysis.anal_specificity_score) if analysis else 0
-    evidence_score = int(analysis.anal_evidence_score) if analysis else 0
-    consistency_score = int(analysis.anal_consistency_score) if analysis else 0
-
-    score_items = [
-        {
-            "label": "질문-답변 맥락 적합",
-            "value": relevance_score,
-            "tone": _score_tone(relevance_score),
-        },
-        {
-            "label": "질문이 요구하는 요소 적합",
-            "value": coverage_score,
-            "tone": _score_tone(coverage_score),
-        },
-        {
-            "label": "구체성",
-            "value": specificity_score,
-            "tone": _score_tone(specificity_score),
-        },
-        {
-            "label": "근거 제시",
-            "value": evidence_score,
-            "tone": _score_tone(evidence_score),
-        },
-        {
-            "label": "이력서 적합성",
-            "value": consistency_score,
-            "tone": _score_tone(consistency_score),
-        },
-    ]
-
-    return templates.TemplateResponse(
-        "result/analysis_text.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "sel_id": sel_id,
-            "resume_id": resume.resume_id,
-            "resume": resume,
-            "question_text": question.qust_question_text,
-            "effective_text": effective_text,
-            "score_items": score_items,
-            "analysis_exists": analysis is not None,
-            "analysis": {
-                "overall_score": int(analysis.anal_overall_score) if analysis else 0,
-                "good_points": (analysis.anal_good_points or []) if analysis else [],
-                "improvement_points": (analysis.anal_improvement_points or []) if analysis else [],
-                "overall_comment": analysis.anal_overall_comment if analysis else "",
-                "revised_answer": analysis.anal_revised_answer if analysis else "",
-                "weakness": analysis.anal_weakness if analysis else [],
-                "reasons": {
-                    "relevance": analysis.anal_relevance_reason if analysis else "",
-                    "coverage": analysis.anal_coverage_reason if analysis else "",
-                    "specificity": analysis.anal_specificity_reason if analysis else "",
-                    "evidence": analysis.anal_evidence_reason if analysis else "",
-                    "consistency": analysis.anal_consistency_reason if analysis else "",
-                },
-            },
-        },
-    )
 
 def _run_submit_analysis_job(inter_id: int) -> None:
     db = SessionLocal()
@@ -1340,49 +1233,6 @@ async def result_index(
     )
 
 
-@web_router.get("/interviews/{session_id}/results/{sel_id}/analysis")
-async def result_analysis(
-    request: Request,
-    session_id: int,
-    sel_id: int,
-    db: Session = Depends(get_db),
-):
-    row = (
-        db.query(
-            SelectQuestion.sel_id.label("sel_id"),
-            SelectQuestion.sel_order_no.label("sel_order_no"),
-            Question.qust_question_text.label("question_text"),
-            SpeechScoreSummary.score_id.label("speech_score_id"),
-            AnswerAnalysis.anal_id.label("answer_analysis_id"),
-        )
-        .join(Question, Question.qust_id == SelectQuestion.qust_id)
-        .outerjoin(SpeechScoreSummary, SpeechScoreSummary.sel_id == SelectQuestion.sel_id)
-        .outerjoin(AnswerAnalysis, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
-        .filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id)
-        .first()
-    )
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="세션에서 해당 질문을 찾을 수 없습니다.",
-        )
-
-    return templates.TemplateResponse(
-        "result/analysis_summary.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "sel_id": sel_id,
-            "summary_item": {
-                "sel_order_no": row.sel_order_no,
-                "question_text": row.question_text,
-                "speech_ready": row.speech_score_id is not None,
-                "context_ready": row.answer_analysis_id is not None,
-            },
-        },
-    )
-
-
 @web_router.get("/interviews/{session_id}/results/{sel_id}/stt")
 async def result_analysis_stt(
     request: Request,
@@ -1598,7 +1448,7 @@ async def upload_recording(
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="업로드한 오디오 파일이 비어 있습니다.",
+            detail="?�로?�한 ?�디???�일??비어 ?�습?�다.",
         )
 
     saved = save_recording_and_upsert(
@@ -2229,29 +2079,3 @@ async def get_transcript_payload(
             "llm_model": None,
         },
     }
-
-@web_router.get("/result/analysis/text")
-async def analysis_text(
-    request: Request,
-    session_id: int,
-    sel_id: int,
-    db: Session = Depends(get_db),
-):
-    return _render_analysis_text_page(
-        request=request,
-        db=db,
-        session_id=session_id,
-        sel_id=sel_id,
-    )
-
-
-@web_router.post("/result/analysis/text/start")
-async def analysis_text_start(
-    session_id: int = Form(...),
-    db: Session = Depends(get_db),
-):
-    _purge_session_audio_files(db=db, inter_id=session_id)
-    return RedirectResponse(
-        url=f"/result/analysis/text?session_id={session_id}",
-        status_code=status.HTTP_303_SEE_OTHER,
-    )
