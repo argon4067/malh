@@ -41,10 +41,10 @@
 .section-title, .section-header, .card-title { font-size: 20px; font-weight: 700; margin-bottom: 30px; border-bottom: 2px solid #f1f1f1; padding-bottom: 15px; }
 
 /* Info Groups */
-.info-group { display: flex; margin-bottom: 15px; }
+.info-group { display: flex; align-items: flex-start; margin-bottom: 15px; }
 .info-label { width: 120px; font-weight: 600; color: var(--text-sub); }
 .info-value { font-weight: 700; color: var(--text-main); }
-.tech-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tech-tags { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
 .tag { background: #f0f7ff; color: var(--primary-navy); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; }
 
 /* List Items */
