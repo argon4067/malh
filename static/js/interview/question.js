@@ -12,8 +12,10 @@ function goToDetail(selId, isRecorded = false) {
         return;
     }
     if (isRecorded) {
-        alert("이미 답변 완료된 질문입니다");
-        return;
+        const shouldRerecord = confirm("이미 녹음이 완료된 질문입니다. 재녹음하시겠습니까?");
+        if (!shouldRerecord) {
+            return;
+        }
     }
     location.href = `/interviews/${sessionId}/questions/${selId}`;
 }

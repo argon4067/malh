@@ -2085,7 +2085,9 @@ async def build_speech_feedback_stream(
     def stream_generator():
         cached = get_speech_feedback(db=db, sel_id=sel_id)
         if cached and not force:
-            content = f"## 분석 리포트\n{cached.sfb_report_md}\n\n## 코칭 피드백\n{cached.sfb_coaching_md}\n"
+            content = (cached.sfb_report_md or "").strip()
+            if (cached.sfb_coaching_md or "").strip():
+                content = f"{content}\n\n{cached.sfb_coaching_md.strip()}"
             for chunk in chunk_text(content):
                 yield chunk
             return
