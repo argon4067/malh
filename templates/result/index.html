@@ -11,24 +11,57 @@
     <div class="container">
         <div class="page-header">
             <h2 class="page-title">분석 결과</h2>
-            <p class="page-desc">질문별 녹음 길이와 텍스트·답변 분석 결과를 확인할 수 있습니다.</p>
+            <p class="page-guide">카드를 클릭하면 피드백을 볼수 있어요</p>
         </div>
 
         <div class="result-list">
             {% if result_items %}
                 {% for item in result_items %}
-                <div class="result-card">
-                    <div class="card-info">
-                        <span class="question-badge">Q{{ item.sel_order_no }}</span>
-                        <div class="question-title">{{ item.question_text }}</div>
-                        <div class="answer-meta">
-                            <span class="time-icon">⏱</span>
-                            답변 길이 <strong>{{ item.duration_sec }}초</strong>
+                <div class="result-card" data-sel-id="{{ item.sel_id }}">
+                    <button type="button" class="result-card-head" data-toggle-card aria-expanded="false">
+                        <div class="card-info">
+                            <span class="question-badge">Q{{ item.sel_order_no }}</span>
+                            <div class="question-title">{{ item.question_text }}</div>
+                            <div class="answer-meta">
+                                <span class="time-icon">⏱</span>
+                                답변 길이 <strong>{{ item.duration_sec }}초</strong>
+                            </div>
                         </div>
-                    </div>
-                    <div class="action-buttons">
-                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/text" class="btn-text">텍스트 보기</a>
-                        <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/stt" class="btn-analysis">답변 분석 보기</a>
+                        <div class="head-actions">
+                            <a href="/interviews/{{ session_id }}/results/{{ item.sel_id }}/text" class="btn-analysis">통합 분석 보기</a>
+                        </div>
+                    </button>
+
+                    <div class="card-expand hidden" data-expand-body>
+                        <div class="summary-cards">
+                            <section class="summary-card">
+                                <div class="card-head">
+                                    <h3 class="card-title">발화 피드백</h3>
+                                    <span
+                                        class="status-chip{% if item.speech_ready %} ready{% endif %}"
+                                        data-speech-status
+                                        data-session-id="{{ session_id }}"
+                                        data-sel-id="{{ item.sel_id }}"
+                                    >
+                                        대기 중
+                                    </span>
+                                </div>
+                                <div class="placeholder-box" data-speech-feedback-output>
+                                    카드를 펼치면 발화 피드백이 자동으로 생성됩니다.
+                                </div>
+                            </section>
+
+                            <section class="summary-card">
+                                <div class="card-head">
+                                    <h3 class="card-title">컨텍스트 피드백</h3>
+                                    <span class="status-chip">연결 예정</span>
+                                </div>
+                                <div class="placeholder-box">
+                                    컨텍스트 피드백 LLM은 아직 연결하지 않았습니다.
+                                </div>
+                            </section>
+                        </div>
+
                     </div>
                 </div>
                 {% endfor %}
@@ -43,16 +76,10 @@
             {% endif %}
         </div>
 
-        <div class="next-btn-area">
-            <form
-                action="/result/analysis/text/start"
-                method="post"
-                onsubmit="return confirm('텍스트 종합 분석으로 이동하면 저장된 음성 파일이 삭제됩니다. 계속할까요?');"
-            >
-                <input type="hidden" name="session_id" value="{{ session_id }}">
-                <button type="submit" class="btn-analysis">텍스트 종합 분석 보기</button>
-            </form>
+        <div class="page-bottom-action">
+            <button type="button" class="btn-weakness" onclick="location.href='/interviews/{{ session_id }}/weakness'">약점보완 하기</button>
         </div>
+
     </div>
 </div>
 {% endblock %}

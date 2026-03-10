@@ -10,33 +10,10 @@
 <div class="analysis-stt-wrapper">
     <div class="container">
         <div class="page-header">
-            <h2 class="page-title">정밀 분석 결과 (STT)</h2>
+            <h2 class="page-title">발화 분석 (STT)</h2>
             {% if question_text %}
             <p class="page-desc">질문: {{ question_text }}</p>
             {% endif %}
-        </div>
-
-        <div class="feedback-action-area">
-            <button
-                type="button"
-                id="generateFeedbackBtn"
-                class="next-btn"
-                data-session-id="{{ session_id }}"
-                data-sel-id="{{ sel_id }}"
-            >
-                LLM 피드백 생성
-            </button>
-            <div id="feedbackStatus" class="feedback-status"></div>
-        </div>
-
-        <div id="llmReportBox" class="report-box analysis{% if not feedback %} hidden{% endif %}">
-            <h3 class="report-header">LLM 분석 리포트</h3>
-            <div id="llmReportContent" class="report-content">{{ (feedback.report_md if feedback else "") }}</div>
-        </div>
-
-        <div id="llmCoachingBox" class="report-box coaching{% if not feedback %} hidden{% endif %}">
-            <h3 class="report-header">LLM 코칭 피드백</h3>
-            <div id="llmCoachingContent" class="report-content">{{ (feedback.coaching_md if feedback else "") }}</div>
         </div>
 
         {% if score %}
@@ -230,15 +207,12 @@
         {% endif %}
 
         <div class="next-btn-area">
-            <button class="next-btn" onclick="location.href='/interviews/{{ session_id }}/results/{{ sel_id }}/text'">
-                텍스트 보기
-            </button>
-            <button class="next-btn" onclick="location.href='/interviews/{{ session_id }}/results'">
-                목록 보기
+            <button class="next-btn" onclick="location.href='/interviews/{{ session_id }}/results/{{ sel_id }}/analysis'">
+                종합분석 보기
             </button>
         </div>
 
-        <a href="#" class="back-link" onclick="scrollToTop(); return false;">맨 위로 이동</a>
+        <a href="/interviews/{{ session_id }}/results" class="back-link">← 목록으로</a>
     </div>
 </div>
 

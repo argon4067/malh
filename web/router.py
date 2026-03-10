@@ -31,7 +31,7 @@ from models.speech_score_summary import SpeechScoreSummary
 from models.speech_score_detail import SpeechScoreDetail
 from models.speech_feedback import SpeechFeedback
 from models.answer_analysis import AnswerAnalysis
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 from services.resume_service import (
     DEFAULT_MODEL,
@@ -56,6 +56,8 @@ from services.speech_score_service import (
 from services.speech_feedback_service import (
     generate_speech_feedback,
     get_speech_feedback,
+    parse_stream_feedback_markdown,
+    start_speech_feedback_stream,
     upsert_speech_feedback,
 )
 
@@ -1298,9 +1300,13 @@ async def result_index(
             Question.qust_question_text.label("question_text"),
             AudioRecording.duration_sec.label("recorded_duration_sec"),
             AudioRecording.recording_id.label("recording_id"),
+            SpeechScoreSummary.score_id.label("speech_score_id"),
+            AnswerAnalysis.anal_id.label("answer_analysis_id"),
         )
         .join(Question, Question.qust_id == SelectQuestion.qust_id)
         .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
+        .outerjoin(SpeechScoreSummary, SpeechScoreSummary.sel_id == SelectQuestion.sel_id)
+        .outerjoin(AnswerAnalysis, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
         .filter(SelectQuestion.inter_id == session_id)
         .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
         .all()
@@ -1317,6 +1323,8 @@ async def result_index(
                 else (row.sel_duration_sec or 0)
             ),
             "is_recorded": row.recording_id is not None,
+            "speech_ready": row.speech_score_id is not None,
+            "context_ready": row.answer_analysis_id is not None,
         }
         for row in rows
     ]
@@ -1339,11 +1347,39 @@ async def result_analysis(
     sel_id: int,
     db: Session = Depends(get_db),
 ):
-    return _render_analysis_text_page(
-        request=request,
-        db=db,
-        session_id=session_id,
-        sel_id=sel_id,
+    row = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            SelectQuestion.sel_order_no.label("sel_order_no"),
+            Question.qust_question_text.label("question_text"),
+            SpeechScoreSummary.score_id.label("speech_score_id"),
+            AnswerAnalysis.anal_id.label("answer_analysis_id"),
+        )
+        .join(Question, Question.qust_id == SelectQuestion.qust_id)
+        .outerjoin(SpeechScoreSummary, SpeechScoreSummary.sel_id == SelectQuestion.sel_id)
+        .outerjoin(AnswerAnalysis, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="세션에서 해당 질문을 찾을 수 없습니다.",
+        )
+
+    return templates.TemplateResponse(
+        "result/analysis_summary.html",
+        {
+            "request": request,
+            "session_id": session_id,
+            "sel_id": sel_id,
+            "summary_item": {
+                "sel_order_no": row.sel_order_no,
+                "question_text": row.question_text,
+                "speech_ready": row.speech_score_id is not None,
+                "context_ready": row.answer_analysis_id is not None,
+            },
+        },
     )
 
 
@@ -1354,41 +1390,10 @@ async def result_analysis_stt(
     sel_id: int,
     db: Session = Depends(get_db),
 ):
-    row = (
-        db.query(
-            SelectQuestion.sel_id.label("sel_id"),
-            Question.qust_question_text.label("question_text"),
-        )
-        .join(Question, Question.qust_id == SelectQuestion.qust_id)
-        .filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id)
-        .first()
-    )
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="세션에서 해당 질문을 찾을 수 없습니다.",
-        )
-
-    score_payload = get_speech_detail_payload(db=db, sel_id=sel_id)
-    feedback_row = get_speech_feedback(db=db, sel_id=sel_id)
-    feedback_payload = None
-    if feedback_row:
-        feedback_payload = {
-            "report_md": feedback_row.sfb_report_md,
-            "coaching_md": feedback_row.sfb_coaching_md,
-            "model": feedback_row.sfb_model,
-        }
-
-    return templates.TemplateResponse(
-        "result/analysis_stt.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "sel_id": sel_id,
-            "question_text": row.question_text,
-            "score": score_payload,
-            "feedback": feedback_payload,
-        },
+    # STT 상세 페이지는 폐쇄하고 text 페이지로 통합했습니다.
+    return RedirectResponse(
+        url=f"/interviews/{session_id}/results/{sel_id}/text",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
 
 
@@ -1439,6 +1444,7 @@ async def result_transcript(
     if (row.refined_text or "").strip():
         effective_text = row.refined_text
     audio_url = f"/storage/{row.file_path}" if (row.file_path or "").strip() else None
+    speech_score_payload = get_speech_detail_payload(db=db, sel_id=sel_id)
 
     return templates.TemplateResponse(
         "result/transcript.html",
@@ -1457,6 +1463,7 @@ async def result_transcript(
                 "specificity_score": row.specificity_score,
                 "evidence_score": row.evidence_score,
                 "consistency_score": row.consistency_score,
+                "speech_score": speech_score_payload,
             },
         },
     )
@@ -2036,6 +2043,78 @@ async def build_speech_feedback(
         "coaching_md": saved.sfb_coaching_md,
         "model": saved.sfb_model,
     }
+
+
+@web_router.post(
+    "/api/interviews/{inter_id}/questions/{sel_id}/speech-feedback/stream",
+    status_code=status.HTTP_200_OK,
+)
+async def build_speech_feedback_stream(
+    inter_id: int,
+    sel_id: int,
+    force: int = Form(default=0),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            Question.qust_question_text.label("question_text"),
+        )
+        .join(Question, Question.qust_id == SelectQuestion.qust_id)
+        .filter(SelectQuestion.inter_id == inter_id, SelectQuestion.sel_id == sel_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="세션에서 해당 질문을 찾을 수 없습니다.",
+        )
+
+    score_payload = get_speech_detail_payload(db=db, sel_id=sel_id)
+    if not score_payload:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="발화 지표가 없습니다. 먼저 제출 분석을 실행해 주세요.",
+        )
+
+    def chunk_text(text: str, size: int = 48):
+        value = text or ""
+        for i in range(0, len(value), size):
+            yield value[i : i + size]
+
+    def stream_generator():
+        cached = get_speech_feedback(db=db, sel_id=sel_id)
+        if cached and not force:
+            content = f"## 분석 리포트\n{cached.sfb_report_md}\n\n## 코칭 피드백\n{cached.sfb_coaching_md}\n"
+            for chunk in chunk_text(content):
+                yield chunk
+            return
+
+        try:
+            stream, model = start_speech_feedback_stream(
+                question_text=row.question_text or "",
+                score_payload=score_payload,
+            )
+            full_text = ""
+            for part in stream:
+                delta = ""
+                try:
+                    delta = part.choices[0].delta.content or ""
+                except Exception:
+                    delta = ""
+                if not delta:
+                    continue
+                full_text += delta
+                yield delta
+
+            result = parse_stream_feedback_markdown(content=full_text, model=model)
+            upsert_speech_feedback(db=db, sel_id=sel_id, result=result)
+        except Exception as exc:
+            yield f"\n\n[오류] 발화 피드백 생성에 실패했습니다: {exc}"
+
+    return StreamingResponse(stream_generator(), media_type="text/plain; charset=utf-8")
+
+
 @web_router.post(
     "/api/interviews/{inter_id}/questions/{sel_id}/transcript/refine",
     status_code=status.HTTP_200_OK,

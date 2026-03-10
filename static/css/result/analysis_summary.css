@@ -1,0 +1,146 @@
+.summary-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 60px 20px;
+    width: 100%;
+}
+
+.container { width: 100%; max-width: 980px; }
+
+.page-header { margin-bottom: 24px; }
+.page-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary-navy);
+    margin-bottom: 8px;
+}
+.page-desc {
+    font-size: 15px;
+    color: var(--text-sub);
+}
+
+.question-box {
+    background: #fff;
+    border: 1px solid #e9edf3;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 6px 24px rgba(15, 53, 104, 0.06);
+    margin-bottom: 22px;
+}
+.q-badge {
+    display: inline-block;
+    background: #f0f7ff;
+    color: var(--primary-navy);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+}
+.q-text {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--text-main);
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.summary-card {
+    background: #fff;
+    border: 1px solid #e9edf3;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 8px 26px rgba(15, 53, 104, 0.08);
+}
+
+.card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.card-title {
+    font-size: 18px;
+    line-height: 1.4;
+    color: var(--primary-navy);
+    font-weight: 800;
+}
+.status-chip {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6a778a;
+    background: #eef2f7;
+    border-radius: 999px;
+    padding: 6px 10px;
+}
+.status-chip.ready {
+    color: #0f6d3f;
+    background: #e8f6ee;
+}
+.status-chip.status-action {
+    border: 0;
+    cursor: pointer;
+}
+.status-chip.status-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.card-desc {
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.placeholder-box {
+    border: 1px dashed #c5d3e8;
+    border-radius: 12px;
+    background: #f8fbff;
+    color: #44546b;
+    font-size: 14px;
+    padding: 14px;
+    min-height: 64px;
+    display: block;
+    white-space: pre-wrap;
+    line-height: 1.7;
+}
+
+.action-area {
+    display: flex;
+    justify-content: center;
+    margin: 28px 0 14px;
+}
+.primary-btn {
+    background-color: var(--primary-orange);
+    color: #fff;
+    padding: 15px 36px;
+    border-radius: 40px;
+    font-size: 17px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(255, 107, 0, 0.28);
+}
+
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 10px;
+    color: var(--text-sub);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+}

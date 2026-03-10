@@ -1,0 +1,68 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}종합분석 - 말해뭐해{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/result/analysis_summary.css?v=20260310">
+{% endblock %}
+
+{% block content %}
+<div class="summary-wrapper">
+    <div class="container">
+        <div class="page-header">
+            <h2 class="page-title">종합분석</h2>
+            <p class="page-desc">텍스트 분석과 발화 분석을 결합해 LLM 종합 분석을 제공할 예정입니다.</p>
+        </div>
+
+        <div class="question-box">
+            <span class="q-badge">Question {{ summary_item.sel_order_no }}</span>
+            <div class="q-text">{{ summary_item.question_text }}</div>
+        </div>
+
+        <div class="summary-cards">
+            <section class="summary-card">
+                <div class="card-head">
+                    <h3 class="card-title">발화 피드백</h3>
+                    <button
+                        type="button"
+                        id="runSpeechFeedbackBtn"
+                        class="status-chip status-action{% if summary_item.speech_ready %} ready{% endif %}"
+                        data-session-id="{{ session_id }}"
+                        data-sel-id="{{ sel_id }}"
+                        {% if not summary_item.speech_ready %}disabled{% endif %}
+                    >
+                        {% if summary_item.speech_ready %}데이터 준비됨{% else %}데이터 대기{% endif %}
+                    </button>
+                </div>
+                <p class="card-desc">발화 속도/명료성/구조/길이 지표를 기반으로 LLM이 발화 개선 피드백을 생성할 영역입니다.</p>
+                <div id="speechFeedbackOutput" class="placeholder-box">
+                    {% if summary_item.speech_ready %}버튼을 누르면 발화 피드백 생성이 시작됩니다.{% else %}발화 점수 데이터가 아직 없어 실행할 수 없습니다.{% endif %}
+                </div>
+            </section>
+
+            <section class="summary-card">
+                <div class="card-head">
+                    <h3 class="card-title">컨텍스트 피드백</h3>
+                    <span class="status-chip{% if summary_item.context_ready %} ready{% endif %}">
+                        {% if summary_item.context_ready %}데이터 준비됨{% else %}데이터 대기{% endif %}
+                    </span>
+                </div>
+                <p class="card-desc">질문 적합성/근거/구체성/이력서 적합성 지표를 기반으로 LLM이 컨텍스트 피드백을 생성할 영역입니다.</p>
+                <div class="placeholder-box">
+                    LLM 연결 예정: 컨텍스트 적합도 분석 + 답변 보완 가이드
+                </div>
+            </section>
+        </div>
+
+        <div class="action-area">
+            <button class="primary-btn" onclick="location.href='/interviews/{{ session_id }}/weakness'">약점보완 페이지로 이동</button>
+        </div>
+
+        <a href="/interviews/{{ session_id }}/results" class="back-link">← 목록으로</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/result/analysis_summary.js?v=20260310"></script>
+{% endblock %}

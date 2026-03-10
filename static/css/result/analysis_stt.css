@@ -177,7 +177,7 @@
 }
 .next-btn:hover { background-color: #0a254a; transform: translateY(-2px); }
 
-.back-link { display: block; text-align: center; margin-top: 20px; color: var(--text-sub); font-weight: 600; text-decoration: underline; }
+.back-link { display: inline-flex; align-items: center; margin-top: 20px; color: var(--text-sub); font-weight: 600; text-decoration: underline; }
 
 @media (max-width: 768px) {
     .score-grid, .metrics-container, .analysis-section { grid-template-columns: 1fr; }
