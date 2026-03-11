@@ -154,9 +154,9 @@ def _get_latest_session_id_by_resume(db: Session, resume_id: int) -> int | None:
     return int(row.inter_id) if row else None
 
 
-def _purge_session_audio_files(db: Session, inter_id: int) -> int:
+def _purge_session_audio_files(db: Session, inter_id: int) -> dict[str, int]:
     rows = db.query(AudioRecording).filter(AudioRecording.inter_id == inter_id).all()
-    removed = 0
+    removed_files = 0
     for row in rows:
         rel = (row.file_path or "").strip()
         if rel:
@@ -164,19 +164,22 @@ def _purge_session_audio_files(db: Session, inter_id: int) -> int:
             try:
                 if abs_path.exists():
                     abs_path.unlink()
-                    removed += 1
+                    removed_files += 1
             except Exception:
                 # Keep idempotent behavior; ignore per-file delete errors.
                 pass
             prune_empty_dirs_upward(Path(settings.STORAGE_DIR), rel)
-        # Keep DB row for compatibility, but clear physical-path metadata.
-        row.file_path = ""
-        row.mime_type = None
-        row.size_bytes = None
+
+    removed_audio = db.query(AudioRecording).filter(AudioRecording.inter_id == inter_id).delete(
+        synchronize_session=False
+    )
     db.commit()
     # Safety net for any leftover empty directories.
     prune_empty_audio_tree(Path(settings.STORAGE_DIR))
-    return removed
+    return {
+        "removed_audio": int(removed_audio),
+        "removed_files": int(removed_files),
+    }
 
 
 def _update_submit_progress(inter_id: int, **fields: object) -> None:
@@ -1319,13 +1322,21 @@ async def result_transcript(
     )
 
 
-# Weakness
+# Weakness 오디오 파일 폴더 지우는거
 @web_router.get("/interviews/{session_id}/weakness")
 async def weakness_questions(
     request: Request,
     session_id: int,
     db: Session = Depends(get_db),
 ):
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.inter_id == session_id)
+        .first()
+    )
+    if session and session.inter_status == "DONE":
+        _purge_session_audio_files(db=db, inter_id=session_id)
+
     rows = (
         db.query(
             SelectQuestion.sel_id.label("sel_id"),

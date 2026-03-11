@@ -59,11 +59,29 @@ async function pollProgress() {
                     location.href = `/interviews/${sessionId}/results`;
                     return;
                 }
-                const firstFailed = data.failed && data.failed[0] ? data.failed[0].reason : "알 수 없는 오류";
+                const failedItems = Array.isArray(data.failed) ? data.failed : [];
+                const failedQuestions = failedItems
+                    .map((item) => Number(item.sel_order_no || 0))
+                    .filter((orderNo) => orderNo > 0)
+                    .map((orderNo) => `Q${orderNo}`)
+                    .join(", ");
+                const failureSummary = failedQuestions ? `실패 질문: ${failedQuestions}\n` : "";
+                const failureDetails = failedItems.length > 0
+                    ? failedItems
+                        .map((item) => {
+                            const orderNo = Number(item.sel_order_no || 0);
+                            const label = orderNo > 0 ? `Q${orderNo}` : "질문 번호 미상";
+                            const reason = item.reason || "알 수 없는 오류";
+                            return `${label}: ${reason}`;
+                        })
+                        .join("\n")
+                    : "알 수 없는 오류";
                 const resetNotice = data.reset_applied
                     ? "\n녹음/분석 상태를 초기화했습니다. 다시 녹음해 주세요."
                     : "";
-                alert(`분석 중 실패가 발생했습니다. (${failedCount}건)\n${firstFailed}${resetNotice}`);
+                alert(
+                    `분석 중 실패가 발생했습니다. (${failedCount}건)\n${failureSummary}${failureDetails}${resetNotice}`
+                );
                 location.href = `/interviews/${sessionId}`;
                 return;
             }
