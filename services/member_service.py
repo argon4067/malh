@@ -25,9 +25,9 @@ def hash_password(password: str):
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
-# JSON 요청 본문을 받기 위한 Pydantic 스키마 (현재 비밀번호 필드 추가)
+# JSON 요청 본문을 받기 위한 Pydantic 스키마
 class PasswordChangeRequest(BaseModel):
-    current_password: str  # 현재 비밀번호 확인용 추가
+    current_password: str
     new_password: str
 
 # =====================================================
@@ -112,15 +112,25 @@ def login(
         )
 
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(key="login_user", value=user.user_username, path="/")
+    # max_age를 설정하지 않아 세션 쿠키로 유지 (브라우저 종료 시 삭제 원칙)
+    response.set_cookie(key="login_user", value=user.user_username, path="/", httponly=True)
     return response
 
 # =====================================================
-# 로그아웃 처리 (GET)
+# 로그아웃 처리 (GET) - 일반 버튼 클릭용
 # =====================================================
 @router.get("/auth/logout")
 def logout():
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response.delete_cookie(key="login_user", path="/")
+    return response
+
+# =====================================================
+# 브라우저 종료 시 로그아웃 처리 (POST) - JS Beacon용 추가
+# =====================================================
+@router.post("/auth/logout-beacon")
+def logout_beacon():
+    response = JSONResponse(content={"status": "logged out"})
     response.delete_cookie(key="login_user", path="/")
     return response
 
@@ -141,7 +151,7 @@ def check_id(userId: str, db: Session = Depends(get_db)):
     return {"exists": False, "invalid_format": False, "is_withdrawn": False}
 
 # =====================================================
-# 비밀번호 변경 API (POST) - ⭐ 콘솔 에러 방지를 위해 200 OK로 통일
+# 비밀번호 변경 API (POST)
 # =====================================================
 @router.post("/auth/change-password")
 def change_password(
@@ -151,11 +161,9 @@ def change_password(
 ):
     user_id = request.cookies.get("login_user")
     
-    # 1. 로그인 확인 (401 대신 success: False)
     if not user_id:
         return JSONResponse(content={"success": False, "detail": "로그인이 필요합니다."})
         
-    # 2. 새 비밀번호 형식 검증 (400 대신 success: False)
     if not re.match(PW_REGEX, data.new_password):
         return JSONResponse(content={"success": False, "detail": "비밀번호 형식이 올바르지 않습니다."})
         
@@ -163,19 +171,15 @@ def change_password(
     if not user:
         return JSONResponse(content={"success": False, "detail": "사용자를 찾을 수 없습니다."})
 
-    # ✅ 3. 현재 비밀번호 검증 (400 대신 success: False)
     if not verify_password(data.current_password, user.user_pw):
         return JSONResponse(content={"success": False, "detail": "현재 비밀번호가 틀립니다."})
         
-    # 4. 기존 비밀번호와 동일한지 확인 (400 대신 success: False)
     if verify_password(data.new_password, user.user_pw):
         return JSONResponse(content={"success": False, "detail": "기존 비밀번호와 동일합니다. 다른 비밀번호를 사용해 주세요."})
         
-    # 5. 비밀번호 업데이트 및 성공 응답
     user.user_pw = hash_password(data.new_password)
     db.commit()
     
-    # 성공 시 success: True 반환
     response = JSONResponse(content={"success": True, "message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인 해주세요"})
     response.delete_cookie(key="login_user", path="/")
     return response

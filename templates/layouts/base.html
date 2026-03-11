@@ -66,6 +66,16 @@
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="/static/js/common/main.js"></script>
+  
+  <script>
+    {% if request.cookies.get("login_user") %}
+    window.addEventListener('beforeunload', function (e) {
+        // navigator.sendBeacon은 브라우저가 종료되는 순간에도 서버에 데이터를 안전하게 보냅니다.
+        navigator.sendBeacon('/auth/logout-beacon');
+    });
+    {% endif %}
+  </script>
+
   {% block scripts %}{% endblock %}
 </body>
 </html>
