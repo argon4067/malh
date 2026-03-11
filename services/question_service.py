@@ -1,20 +1,24 @@
 import json
 import os
 import re
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
+from models.answer_analysis import AnswerAnalysis
+from models.interview_session import InterviewSession
 from models.llm_run import LlmRun
+from models.question import Question
+from models.question_filter_result import QuestionFilterResult
+from models.question_set import QuestionSet
 from models.resume import Resume
 from models.resume_classification import ResumeClassification
 from models.resume_structured import ResumeStructured
-from models.question_set import QuestionSet
-from models.question import Question
-from models.question_filter_result import QuestionFilterResult
+from models.select_question import SelectQuestion
+from models.transcript import Transcript
 
 from schemas.question_llm import (
     QuestionCandidateItem,
@@ -26,6 +30,16 @@ from services.prompt.question.generate_prompt import (
     QUESTION_GENERATE_SYSTEM_PROMPT,
     build_question_generate_user_prompt,
 )
+
+# ✅ 추가: 약점 보강 전용 프롬프트
+from services.prompt.question.generate_weakness_prompt import (
+    PROMPT_VERSION_QUESTION_WEAKNESS_GENERATE,
+    QUESTION_WEAKNESS_GENERATE_SYSTEM_PROMPT,
+    build_question_weakness_generate_user_prompt,
+)
+
+# ✅ 추가: 세션 약점 TOP3 계산 재사용
+from services.weakness_service import get_session_weakness_top3
 
 load_dotenv()
 
@@ -207,6 +221,58 @@ def generate_question_candidates_llm(
     return resp.output_parsed
 
 
+# ✅ 추가: 약점 보강 전용 LLM 호출
+def generate_weakness_question_candidates_llm(
+    structured_payload: dict,
+    job_family: Optional[str],
+    job_role: Optional[str],
+    weakness_top3: list[dict[str, Any]],
+    source_answers: list[dict[str, Any]],
+    existing_questions: List[str],
+    model: str = DEFAULT_MODEL,
+) -> QuestionCandidateResult:
+    client = get_client()
+
+    existing_questions_text = "\n".join([f"- {q}" for q in existing_questions]).strip()
+
+    resp = client.responses.parse(
+        model=model,
+        input=[
+            {"role": "system", "content": QUESTION_WEAKNESS_GENERATE_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": build_question_weakness_generate_user_prompt(
+                    structured_json=json.dumps(
+                        structured_payload,
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    job_family=job_family,
+                    job_role=job_role,
+                    weakness_top3_json=json.dumps(
+                        weakness_top3,
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    source_answers_json=json.dumps(
+                        source_answers,
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    existing_questions_text=existing_questions_text,
+                ),
+            },
+        ],
+        text_format=QuestionCandidateResult,
+        truncation="auto",
+    )
+
+    if resp.output_parsed is None:
+        raise RuntimeError("약점 보강 질문 생성 파싱 실패")
+
+    return resp.output_parsed
+
+
 def create_question_set(
     db: Session,
     resume_id: int,
@@ -224,10 +290,12 @@ def create_question_set(
     return row
 
 
+# ✅ 변경: selected 파라미터 추가
 def save_question_candidates(
     db: Session,
     set_id: int,
     items: List[QuestionCandidateItem],
+    selected: int = 0,
 ) -> None:
     for item in items:
         row = Question(
@@ -236,7 +304,7 @@ def save_question_candidates(
             qust_difficulty=item.difficulty,
             qust_question_text=normalize_question_text(item.question_text),
             qust_evidence=item.evidence,
-            qust_is_selected=0,
+            qust_is_selected=selected,
         )
         db.add(row)
 
@@ -382,7 +450,6 @@ def generate_questions_for_resume(
     )
 
     try:
-        # 1차 생성
         first_result = generate_question_candidates_llm(
             structured_payload=structured_payload,
             job_family=classification.class_job_family if classification else None,
@@ -416,7 +483,6 @@ def generate_questions_for_resume(
             set_id=question_set.set_id,
         )
 
-        # 부족하면 최대 1회 추가 생성
         if selected_count < target_count:
             question_set.set_attempt = 2
             question_set.set_status = "GENERATING"
@@ -484,21 +550,271 @@ def generate_questions_for_resume(
 
         raise HTTPException(status_code=500, detail=f"질문 생성 실패: {e}") from e
 
+
+# ✅ 추가: 약점 보강 질문 생성용 보조 함수들
+def _pick_generation_answer_text(transcript: Transcript | None) -> str:
+    if not transcript:
+        return ""
+    if transcript.refined_text and transcript.refined_text.strip():
+        return transcript.refined_text.strip()
+    if transcript.transcript_text and transcript.transcript_text.strip():
+        return transcript.transcript_text.strip()
+    return ""
+
+
+def _build_weakness_distribution(weakness_top3: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not weakness_top3:
+        return []
+
+    weakness_top3 = weakness_top3[:3]
+
+    if len(weakness_top3) >= 3:
+        counts = [2, 2, 1]
+    elif len(weakness_top3) == 2:
+        counts = [3, 2]
+    else:
+        counts = [5]
+
+    distributed = []
+    for weakness, count in zip(weakness_top3, counts):
+        copied = dict(weakness)
+        copied["question_count"] = count
+        distributed.append(copied)
+
+    return distributed
+
+
+def _load_source_session_answer_items(
+    db: Session,
+    source_session_id: int,
+) -> list[dict[str, Any]]:
+    rows = (
+        db.query(
+            SelectQuestion.sel_order_no.label("sel_order_no"),
+            Question.qust_question_text.label("question_text"),
+            Transcript.transcript_text.label("transcript_text"),
+            Transcript.refined_text.label("refined_text"),
+            AnswerAnalysis.anal_weakness.label("anal_weakness"),
+            AnswerAnalysis.anal_improvement_points.label("anal_improvement_points"),
+            AnswerAnalysis.anal_overall_comment.label("anal_overall_comment"),
+        )
+        .join(Question, Question.qust_id == SelectQuestion.qust_id)
+        .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
+        .outerjoin(AnswerAnalysis, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == source_session_id)
+        .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
+        .all()
+    )
+
+    items: list[dict[str, Any]] = []
+
+    for row in rows:
+        answer_text = ""
+        if row.refined_text and str(row.refined_text).strip():
+            answer_text = str(row.refined_text).strip()
+        elif row.transcript_text and str(row.transcript_text).strip():
+            answer_text = str(row.transcript_text).strip()
+
+        items.append(
+            {
+                "sel_order_no": int(row.sel_order_no),
+                "question_text": normalize_question_text(row.question_text or ""),
+                "answer_text": answer_text,
+                "weakness_metrics": row.anal_weakness or [],
+                "improvement_points": row.anal_improvement_points or [],
+                "overall_comment": row.anal_overall_comment or "",
+            }
+        )
+
+    return items
+
+
+def _create_interview_session_from_selected_questions(
+    db: Session,
+    user_id: int,
+    resume_id: int,
+    question_set_id: int,
+) -> InterviewSession:
+    selected_questions = (
+        db.query(Question)
+        .filter(
+            Question.set_id == question_set_id,
+            Question.qust_is_selected == 1,
+        )
+        .order_by(Question.qust_id.asc())
+        .all()
+    )
+
+    if not selected_questions:
+        raise HTTPException(status_code=500, detail="선택된 약점 보강 질문이 없습니다.")
+
+    interview_session = InterviewSession(
+        user_id=user_id,
+        resume_id=resume_id,
+        set_id=question_set_id,
+        inter_status="IN_PROGRESS",
+    )
+    db.add(interview_session)
+    db.flush()
+
+    for idx, question in enumerate(selected_questions, start=1):
+        db.add(
+            SelectQuestion(
+                inter_id=interview_session.inter_id,
+                qust_id=question.qust_id,
+                sel_order_no=idx,
+            )
+        )
+
+    db.commit()
+    db.refresh(interview_session)
+    return interview_session
+
+
+# ✅ 추가: source session 기준 약점 보강 질문 5개 생성 + 새 weakness session 생성
+def generate_weakness_questions_for_session(
+    db: Session,
+    source_session_id: int,
+    model: str = DEFAULT_MODEL,
+) -> dict[str, Any]:
+    source_session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.inter_id == source_session_id)
+        .first()
+    )
+    if not source_session:
+        raise HTTPException(status_code=404, detail="원본 면접 세션을 찾을 수 없습니다.")
+
+    if source_session.inter_status != "DONE":
+        raise HTTPException(status_code=409, detail="면접 분석 완료 후에만 약점 보강 질문을 생성할 수 있습니다.")
+
+    resume_context = get_resume_question_context(db, source_session.resume_id)
+    classification = resume_context["classification"]
+    structured = resume_context["structured"]
+    structured_payload = build_question_structured_payload(structured)
+
+    weakness_top3 = get_session_weakness_top3(
+        db=db,
+        session_id=source_session_id,
+        top_k=3,
+    )
+    if not weakness_top3:
+        raise HTTPException(status_code=409, detail="보강이 필요한 약점 데이터가 없습니다.")
+
+    distributed_weaknesses = _build_weakness_distribution(weakness_top3)
+    source_answer_items = _load_source_session_answer_items(db, source_session_id)
+
+    existing_questions = [
+        item["question_text"]
+        for item in source_answer_items
+        if item.get("question_text")
+    ]
+
+    question_set = create_question_set(
+        db=db,
+        resume_id=source_session.resume_id,
+        purpose="WEAKNESS",
+    )
+
+    try:
+        llm_result = generate_weakness_question_candidates_llm(
+            structured_payload=structured_payload,
+            job_family=classification.class_job_family if classification else None,
+            job_role=classification.class_job_role if classification else None,
+            weakness_top3=distributed_weaknesses,
+            source_answers=source_answer_items,
+            existing_questions=existing_questions,
+            model=model,
+        )
+
+        if len(llm_result.questions) != 5:
+            raise RuntimeError(f"약점 보강 질문 수가 5개가 아닙니다. (현재 {len(llm_result.questions)}개)")
+
+        save_llm_run_success(
+            db=db,
+            stage="QUESTION_GENERATE_WEAKNESS_V1",
+            model=model,
+            prompt_version=PROMPT_VERSION_QUESTION_WEAKNESS_GENERATE,
+        )
+
+        # ✅ 변경: 약점 질문은 바로 selected=1 저장
+        save_question_candidates(
+            db=db,
+            set_id=question_set.set_id,
+            items=llm_result.questions,
+            selected=1,
+        )
+
+        weakness_session = _create_interview_session_from_selected_questions(
+            db=db,
+            user_id=source_session.user_id,
+            resume_id=source_session.resume_id,
+            question_set_id=question_set.set_id,
+        )
+
+        question_set = (
+            db.query(QuestionSet)
+            .filter(QuestionSet.set_id == question_set.set_id)
+            .first()
+        )
+        if question_set:
+            question_set.set_status = "COMPLETED"
+            db.commit()
+            db.refresh(question_set)
+
+        return {
+            "source_session_id": source_session_id,
+            "weakness_session_id": weakness_session.inter_id,
+            "question_set_id": question_set.set_id if question_set else None,
+            "question_count": 5,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+
+        save_llm_run_failed(
+            db=db,
+            stage="QUESTION_GENERATE_WEAKNESS_V1",
+            model=model,
+            prompt_version=PROMPT_VERSION_QUESTION_WEAKNESS_GENERATE,
+            error_code=type(e).__name__,
+            error_message=str(e),
+        )
+        db.commit()
+
+        question_set = (
+            db.query(QuestionSet)
+            .filter(QuestionSet.set_id == question_set.set_id)
+            .first()
+        )
+        if question_set:
+            question_set.set_status = "FAILED"
+            db.commit()
+
+        raise HTTPException(status_code=500, detail=f"약점 보강 질문 생성 실패: {e}") from e
+
+
+# ✅ 변경: purpose 필터 추가
 def get_latest_completed_question_set(
     db: Session,
     resume_id: int,
+    purpose: str = "DEFAULT",
 ) -> QuestionSet | None:
     return (
         db.query(QuestionSet)
         .filter(
             QuestionSet.resume_id == resume_id,
             QuestionSet.set_status == "COMPLETED",
+            QuestionSet.set_purpose == purpose,
         )
         .order_by(QuestionSet.set_id.desc())
         .first()
     )
 
 
+# ✅ 변경: DEFAULT / WEAKNESS 구분해서 조회
 def ensure_questions_generated_for_resume(
     db: Session,
     resume_id: int,
@@ -506,7 +822,11 @@ def ensure_questions_generated_for_resume(
     purpose: str = "DEFAULT",
     model: str = DEFAULT_MODEL,
 ) -> QuestionSet:
-    latest_set = get_latest_completed_question_set(db, resume_id)
+    latest_set = get_latest_completed_question_set(
+        db=db,
+        resume_id=resume_id,
+        purpose=purpose,
+    )
 
     if latest_set:
         selected_count = (

@@ -1,45 +1,75 @@
 /**
- * weakness_wait.js - 약점 보강 질문 생성 시뮬레이션 로직 (jQuery version)
+ * weakness_wait.js
+ * - 시뮬레이션 제거
+ * - 실제 약점 보강 질문 생성 API 호출
+ * - 생성 완료 후 새 weakness session으로 이동
  */
 
-$(function() {
+function getSourceSessionIdFromPath() {
+    const match = window.location.pathname.match(/\/interviews\/(\d+)\/weakness\/wait/);
+    return match ? Number(match[1]) : 0;
+}
+
+$(function () {
     let progress = 0;
-    const $progressBar = $('#progressBar');
-    const $percentageText = $('#percentageText');
+    let finished = false;
 
-    /**
-     * 진행률 업데이트 및 페이지 이동 처리
-     */
-    function simulateGeneration() {
-        const interval = setInterval(() => {
-            // 랜덤하게 진행률 증가 (2~6%)
-            const increment = Math.floor(Math.random() * 5) + 2;
-            progress += increment;
+    const sessionId = getSourceSessionIdFromPath();
+    const $progressBar = $("#progressBar");
+    const $percentageText = $("#percentageText");
 
-            if (progress >= 100) {
-                progress = 100;
-                clearInterval(interval);
-                updateUI(progress);
-                
-                // 완료 후 0.5초 뒤 약점 보강 실전 페이지로 이동
-                setTimeout(() => {
-                    $(location).attr('href', 'weakness_practice.html'); 
-                }, 500);
-            } else {
-                updateUI(progress);
-            }
-        }, 150); // 0.15초마다 상태 체크
-    }
-
-    /**
-     * UI 요소(바 너비, 텍스트) 업데이트
-     * @param {number} value - 현재 진행률
-     */
     function updateUI(value) {
-        $progressBar.css('width', value + '%');
-        $percentageText.text(value + '%');
+        $progressBar.css("width", value + "%");
+        $percentageText.text(value + "%");
     }
 
-    // 시뮬레이션 시작
-    simulateGeneration();
+    function startFakeProgress() {
+        return setInterval(() => {
+            if (finished) return;
+            if (progress >= 90) return;
+
+            const increment = Math.floor(Math.random() * 5) + 3;
+            progress = Math.min(90, progress + increment);
+            updateUI(progress);
+        }, 180);
+    }
+
+    async function startGeneration() {
+        if (!sessionId) {
+            alert("세션 정보가 올바르지 않습니다.");
+            window.location.href = "/resumes";
+            return;
+        }
+
+        const interval = startFakeProgress();
+
+        try {
+            const response = await fetch(`/api/interviews/${sessionId}/weakness/start`, {
+                method: "POST",
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.detail || "약점 보강 질문 생성에 실패했습니다.");
+            }
+
+            finished = true;
+            progress = 100;
+            updateUI(progress);
+            clearInterval(interval);
+
+            setTimeout(() => {
+                window.location.href = `/interviews/${data.weakness_session_id}/weakness`;
+            }, 400);
+        } catch (error) {
+            finished = true;
+            clearInterval(interval);
+            alert(error.message || "약점 보강 질문 생성에 실패했습니다.");
+            window.location.href = `/interviews/${sessionId}/results`;
+        }
+    }
+
+    updateUI(0);
+    startGeneration();
 });

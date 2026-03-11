@@ -44,9 +44,14 @@ from services.resume_service import (
 
 from models.question_set import QuestionSet
 from models.question_filter_result import QuestionFilterResult
-from services.question_service import ensure_questions_generated_for_resume
-from services.question_service import generate_questions_for_resume
-from services.question_service import get_latest_completed_question_set
+
+from services.question_service import (
+    ensure_questions_generated_for_resume,
+    generate_questions_for_resume,
+    get_latest_completed_question_set,
+    generate_weakness_questions_for_session,
+)
+
 from services.speech_score_service import (
     calculate_speech_scores,
     get_speech_detail_payload,
@@ -80,6 +85,8 @@ from services.storage_cleanup_service import (
 
 from services.analysis_service import analyze_answer_by_sel_id
 from services.weakness_service import get_session_weakness_top3
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -134,6 +141,19 @@ def _get_owned_resume(db: Session, user_id: int, resume_id: int) -> Resume:
     if not resume:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
     return resume
+
+def _get_owned_interview_session(db: Session, user_id: int, session_id: int) -> InterviewSession:
+    session = (
+        db.query(InterviewSession)
+        .filter(
+            InterviewSession.inter_id == session_id,
+            InterviewSession.user_id == user_id,
+        )
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="면접 세션을 찾을 수 없습니다.")
+    return session
 
 
 def _get_resume_id_by_session(db: Session, session_id: int) -> int | None:
@@ -1232,6 +1252,15 @@ async def result_index(
         top_k=3,
     )
 
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.inter_id == session_id)
+        .first()
+    )
+    session_purpose = "DEFAULT"
+    if session and session.question_set:
+        session_purpose = session.question_set.set_purpose
+
     return templates.TemplateResponse(
         "result/index.html",
         {
@@ -1240,6 +1269,7 @@ async def result_index(
             "resume_id": _get_resume_id_by_session(db, session_id),
             "result_items": result_items,
             "weakness_top3": weakness_top3,
+            "session_purpose": session_purpose,
         },
     )
 
@@ -1251,7 +1281,6 @@ async def result_analysis_stt(
     sel_id: int,
     db: Session = Depends(get_db),
 ):
-    # STT 상세 페이지는 폐쇄하고 text 페이지로 통합했습니다.
     return RedirectResponse(
         url=f"/interviews/{session_id}/results/{sel_id}/text",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
@@ -1342,8 +1371,18 @@ async def weakness_questions(
         .filter(InterviewSession.inter_id == session_id)
         .first()
     )
-    if session and session.inter_status == "DONE":
-        _purge_session_audio_files(db=db, inter_id=session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="면접 세션을 찾을 수 없습니다.",
+        )
+
+    # DEFAULT 세션으로 직접 들어오면 wait로 보냄
+    if not session.question_set or session.question_set.set_purpose != "WEAKNESS":
+        return RedirectResponse(
+            url=f"/interviews/{session_id}/weakness/wait",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
 
     rows = (
         db.query(
@@ -1368,17 +1407,81 @@ async def weakness_questions(
 
     return templates.TemplateResponse(
         "weakness/questions.html",
-        {"request": request, "session_id": session_id, "weakness_items": weakness_items},
+        {
+            "request": request,
+            "session_id": session_id,
+            "weakness_items": weakness_items,
+        },
     )
 
 
 @web_router.get("/interviews/{session_id}/weakness/wait")
-async def weakness_wait(request: Request, session_id: int):
+async def weakness_wait(
+    request: Request,
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.inter_id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="면접 세션을 찾을 수 없습니다.",
+        )
+
+    # 이미 WEAKNESS 세션이면 바로 목록 페이지로
+    if session.question_set and session.question_set.set_purpose == "WEAKNESS":
+        return RedirectResponse(
+            url=f"/interviews/{session_id}/weakness",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
+
     return templates.TemplateResponse(
         "weakness/wait.html",
         {"request": request, "session_id": session_id},
     )
 
+# 결과 세션 기준 약점 보강 질문 생성 시작 API
+@web_router.post(
+    "/api/interviews/{session_id}/weakness/start",
+    status_code=status.HTTP_200_OK,
+)
+async def start_weakness_question_generation(
+    request: Request,
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    user = _get_login_user(request, db)
+    source_session = _get_owned_interview_session(db, user.user_id, session_id)
+
+    if not source_session.question_set or source_session.question_set.set_purpose != "DEFAULT":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="기본 면접 결과에서만 약점 보강 질문을 생성할 수 있습니다.",
+        )
+
+    if source_session.inter_status != "DONE":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="면접 분석이 완료된 뒤에만 약점 보강 질문을 생성할 수 있습니다.",
+        )
+
+    result = generate_weakness_questions_for_session(
+        db=db,
+        source_session_id=session_id,
+        model=DEFAULT_MODEL,
+    )
+
+    # 원본 면접 오디오 정리
+    _purge_session_audio_files(db=db, inter_id=session_id)
+
+    return {
+        "ok": True,
+        **result,
+    }
 
 @web_router.get("/interviews/{session_id}/weakness/{question_id}")
 async def weakness_detail(
