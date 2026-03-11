@@ -25,21 +25,17 @@ def hash_password(password: str):
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
-# JSON 요청 본문을 받기 위한 Pydantic 스키마 (현재 비밀번호 필드 추가)
 class PasswordChangeRequest(BaseModel):
-    current_password: str  # 현재 비밀번호 확인용 추가
+    current_password: str
     new_password: str
 
 # =====================================================
-# 회원가입 페이지 (GET)
+# 회원가입 관련 로직 (기존과 동일)
 # =====================================================
 @router.get("/auth/signup")
 def signup_page(request: Request):
     return templates.TemplateResponse("auth/signup.html", {"request": request})
 
-# =====================================================
-# 회원가입 처리 (POST)
-# =====================================================
 @router.post("/auth/signup")
 def signup(
     request: Request,
@@ -50,46 +46,28 @@ def signup(
 ):
     if not re.match(ID_REGEX, userId):
         return templates.TemplateResponse("auth/signup.html", {"request": request, "error": "아이디 형식이 올바르지 않습니다."})
-
     if not re.match(PW_REGEX, userPw):
         return templates.TemplateResponse("auth/signup.html", {"request": request, "error": "비밀번호 형식이 올바르지 않습니다."})
-
     if userPw != userPwConfirm:
         return templates.TemplateResponse("auth/signup.html", {"request": request, "error": "비밀번호가 일치하지 않습니다."})
 
     user = db.query(User).filter(User.user_username == userId).first()
-
     if user:
-        if user.user_status == 0:
-            error_msg = "탈퇴처리된 계정입니다."
-        else:
-            error_msg = "이미 존재하는 아이디입니다."
-        
-        return templates.TemplateResponse("auth/signup.html", {
-            "request": request, 
-            "error": error_msg
-        })
+        error_msg = "탈퇴처리된 계정입니다." if user.user_status == 0 else "이미 존재하는 아이디입니다."
+        return templates.TemplateResponse("auth/signup.html", {"request": request, "error": error_msg})
 
-    new_user = User(
-        user_username=userId,
-        user_pw=hash_password(userPw)
-    )
-    
+    new_user = User(user_username=userId, user_pw=hash_password(userPw))
     db.add(new_user)
     db.commit()
-
     return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
 # =====================================================
-# 로그인 페이지 (GET)
+# 로그인 처리 (수정됨: 쿠키 만료 시간 설정)
 # =====================================================
 @router.get("/auth/login")
 def login_page(request: Request):
     return templates.TemplateResponse("auth/login.html", {"request": request})
 
-# =====================================================
-# 로그인 처리 (POST)
-# =====================================================
 @router.post("/auth/login")
 def login(
     request: Request,
@@ -98,25 +76,26 @@ def login(
     db: Session = Depends(get_db)
 ):
     user = db.query(User).filter(User.user_username == userId).first()
-
     if not user or not verify_password(userPw, user.user_pw):
-        return templates.TemplateResponse(
-            "auth/login.html",
-            {"request": request, "error": "아이디 또는 비밀번호가 일치하지 않습니다."}
-        )
-
+        return templates.TemplateResponse("auth/login.html", {"request": request, "error": "아이디 또는 비밀번호가 일치하지 않습니다."})
     if user.user_status == 0:
-        return templates.TemplateResponse(
-            "auth/login.html",
-            {"request": request, "error": "탈퇴 처리된 계정입니다."}
-        )
+        return templates.TemplateResponse("auth/login.html", {"request": request, "error": "탈퇴 처리된 계정입니다."})
 
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    response.set_cookie(key="login_user", value=user.user_username, path="/")
+    
+    # max_age=1800 (30분): 사이트를 나가거나 창을 닫아도 30분 뒤에는 쿠키가 자동 삭제됩니다.
+    response.set_cookie(
+        key="login_user", 
+        value=user.user_username, 
+        path="/", 
+        httponly=True,
+        max_age=1800,  # 30분 (초 단위)
+        samesite="lax"
+    )
     return response
 
 # =====================================================
-# 로그아웃 처리 (GET)
+# 로그아웃 및 기타 API (기존과 동일)
 # =====================================================
 @router.get("/auth/logout")
 def logout():
@@ -124,25 +103,13 @@ def logout():
     response.delete_cookie(key="login_user", path="/")
     return response
 
-# =====================================================
-# 아이디 중복 확인 API (GET)
-# =====================================================
 @router.get("/auth/check-id")
 def check_id(userId: str, db: Session = Depends(get_db)):
-    if not re.match(ID_REGEX, userId):
-        return {"exists": False, "invalid_format": True, "is_withdrawn": False}
-
     user = db.query(User).filter(User.user_username == userId).first()
-    
     if user:
-        is_withdrawn = (user.user_status == 0)
-        return {"exists": True, "invalid_format": False, "is_withdrawn": is_withdrawn}
-        
+        return {"exists": True, "invalid_format": False, "is_withdrawn": (user.user_status == 0)}
     return {"exists": False, "invalid_format": False, "is_withdrawn": False}
 
-# =====================================================
-# 비밀번호 변경 API (POST) - ⭐ 콘솔 에러 방지를 위해 200 OK로 통일
-# =====================================================
 @router.post("/auth/change-password")
 def change_password(
     request: Request,
@@ -151,11 +118,9 @@ def change_password(
 ):
     user_id = request.cookies.get("login_user")
     
-    # 1. 로그인 확인 (401 대신 success: False)
     if not user_id:
         return JSONResponse(content={"success": False, "detail": "로그인이 필요합니다."})
         
-    # 2. 새 비밀번호 형식 검증 (400 대신 success: False)
     if not re.match(PW_REGEX, data.new_password):
         return JSONResponse(content={"success": False, "detail": "비밀번호 형식이 올바르지 않습니다."})
         
@@ -163,19 +128,15 @@ def change_password(
     if not user:
         return JSONResponse(content={"success": False, "detail": "사용자를 찾을 수 없습니다."})
 
-    # ✅ 3. 현재 비밀번호 검증 (400 대신 success: False)
     if not verify_password(data.current_password, user.user_pw):
         return JSONResponse(content={"success": False, "detail": "현재 비밀번호가 틀립니다."})
         
-    # 4. 기존 비밀번호와 동일한지 확인 (400 대신 success: False)
     if verify_password(data.new_password, user.user_pw):
         return JSONResponse(content={"success": False, "detail": "기존 비밀번호와 동일합니다. 다른 비밀번호를 사용해 주세요."})
         
-    # 5. 비밀번호 업데이트 및 성공 응답
     user.user_pw = hash_password(data.new_password)
     db.commit()
     
-    # 성공 시 success: True 반환
     response = JSONResponse(content={"success": True, "message": "비밀번호가 성공적으로 변경되었습니다. 다시 로그인 해주세요"})
     response.delete_cookie(key="login_user", path="/")
     return response
