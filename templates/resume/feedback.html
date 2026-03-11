@@ -75,7 +75,7 @@
     const hasResumes = {{ 'true' if has_resumes else 'false' }};
     window.addEventListener('DOMContentLoaded', () => {
         if (!hasResumes) {
-            alert('등록된 이력서가 없습니다.');
+            alert('등록된 이력서가 없습니다.\n서비스 이용을 위해 이력서를 등록해주십시오.');
             window.location.href = '/resumes';
         }
     });
