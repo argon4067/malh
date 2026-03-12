@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     )
 
     STORAGE_DIR: str = Field(default=str(PROJECT_ROOT / "storage"))
+    INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC: int = Field(default=1800)
+    INTERVIEW_AUDIO_STALE_TTL_SEC: int = Field(default=86400)
 
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = Field(default="gpt-4.1-mini")

@@ -3,15 +3,14 @@
 {% block title %}약점 보강 - 말해뭐해{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="/static/css/weakness/weakness.css">
+<link rel="stylesheet" href="/static/css/interview/question.css">
 {% endblock %}
 
 {% block content %}
-<div class="weakness-container-wrapper">
+<div class="question-container-wrapper">
     <div class="container">
         <div class="page-header">
             <h2 class="page-title">약점 보강</h2>
-
             <p class="page-desc">
                 1차 면접에서 드러난 약점을 다시 검증하는 보강 질문입니다.<br>
                 질문 카드를 눌러 답변을 녹음한 뒤, 최종적으로 개선 추적 리포트에서 1차와 2차를 비교할 수 있습니다.
@@ -21,29 +20,29 @@
         <div class="question-list">
             {% if weakness_items %}
                 {% for item in weakness_items %}
-                <div class="question-card" onclick="goToWeaknessDetail({{ item.sel_id }})">
-                    <div class="card-left">
-                        <span class="q-label">보강 Q{{ item.sel_order_no }}</span>
-
-                        <div class="q-text">{{ item.question_text }}</div>
+                <div class="question-card" onclick="goToWeaknessDetail({{ item.sel_id }}, {{ 'true' if item.is_recorded else 'false' }})">
+                    <div class="q-content">
+                        <div class="q-number">{{ item.sel_order_no }}</div>
+                        <div class="q-text">클릭 후 상세 페이지에서 질문을 확인할 수 있습니다.</div>
                     </div>
-                    <div class="card-right">→</div>
+                    {% if item.is_recorded %}
+                    <div class="q-status done">녹음 완료</div>
+                    {% else %}
+                    <div class="q-status">대기 중</div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             {% else %}
                 <div class="question-card">
-                    <div class="card-left">
-                        <span class="q-label">-</span>
+                    <div class="q-content">
+                        <div class="q-number">-</div>
                         <div class="q-text">표시할 약점 보강 질문이 없습니다.</div>
                     </div>
                 </div>
             {% endif %}
         </div>
 
-        <div class="bottom-action">
-
-            <button class="submit-btn" onclick="completeReinforcement()">개선 추적 리포트 보기</button>
-        </div>
+        <button class="submit-btn" onclick="completeReinforcement()">개선 추적 리포트 보기</button>
     </div>
 </div>
 {% endblock %}

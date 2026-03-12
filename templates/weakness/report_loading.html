@@ -1,0 +1,32 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}개선 추적 리포트 준비 - 말해뭐해{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/interview/submit_loading.css">
+{% endblock %}
+
+{% block content %}
+<div class="submit-loading-wrapper">
+    <div class="loading-card">
+        <h2 class="loading-title">개선 추적 리포트 준비 중</h2>
+        <p class="loading-desc" id="loadingMessage">작업을 시작합니다.</p>
+        <div class="progress-track">
+            <div id="loadingProgressBar" class="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+            <span id="loadingPercent">0%</span>
+            <span id="loadingCount">0/0</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.WEAKNESS_REPORT_LOADING_CONTEXT = {
+        sessionId: {{ session_id }}
+    };
+</script>
+<script src="/static/js/weakness/report_loading.js"></script>
+{% endblock %}

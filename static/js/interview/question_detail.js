@@ -16,9 +16,26 @@ let smoothedLevels = [];
 
 const QUESTION_PREVIEW_SECONDS = 5;
 const QUESTION_PREVIEW_MAX_COUNT = 2;
-const interviewContext = window.INTERVIEW_CONTEXT || {};
-const sessionId = Number(interviewContext.sessionId || 0);
-const selId = Number(interviewContext.selId || 0);
+
+function getSessionId() {
+    const match = window.location.pathname.match(/\/interviews\/(\d+)/);
+    if (match) {
+        return Number(match[1]);
+    }
+
+    const interviewContext = window.INTERVIEW_CONTEXT || {};
+    return Number(interviewContext.sessionId || 0);
+}
+
+function getQuestionId() {
+    const match = window.location.pathname.match(/\/questions\/(\d+)/);
+    if (match) {
+        return Number(match[1]);
+    }
+
+    const interviewContext = window.INTERVIEW_CONTEXT || {};
+    return Number(interviewContext.selId || 0);
+}
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,6 +136,8 @@ function pickSupportedMimeType() {
 }
 
 async function uploadRecordedAudio(blob) {
+    const sessionId = getSessionId();
+    const selId = getQuestionId();
     const ext = blob.type.includes("mp4") ? "m4a" : "webm";
     const fileName = `answer.${ext}`;
     const file = new File([blob], fileName, { type: blob.type || "audio/webm" });
@@ -228,6 +247,9 @@ function startVisualizer(stream) {
 }
 
 async function startInterviewFlow() {
+    const sessionId = getSessionId();
+    const selId = getQuestionId();
+
     if (isRecording || isPreparing) {
         return;
     }
@@ -307,6 +329,8 @@ function startRecordingFlow() {
 }
 
 function finishRecording() {
+    const sessionId = getSessionId();
+
     if (!isRecording || !mediaRecorder) {
         return;
     }

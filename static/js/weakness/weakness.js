@@ -7,9 +7,15 @@ function getSessionIdFromPath() {
     return match ? Number(match[1]) : 0;
 }
 
-function goToWeaknessDetail(id) {
+function goToWeaknessDetail(id, isRecorded = false) {
     const sessionId = getSessionIdFromPath();
     if (!sessionId || !id) return;
+    if (isRecorded) {
+        const shouldRerecord = confirm("이미 답변완료 한 질문입니다. 재녹음 하시겠습니까?");
+        if (!shouldRerecord) {
+            return;
+        }
+    }
     $(location).attr("href", `/interviews/${sessionId}/weakness/${id}`);
 }
 
@@ -18,7 +24,7 @@ function completeReinforcement() {
     if (!sessionId) return;
 
     if (confirm("보강 연습 결과를 분석해 개선 추적 리포트를 확인하시겠습니까?")) {
-        $(location).attr("href", `/interviews/${sessionId}/weakness/report`);
+        $(location).attr("href", `/interviews/${sessionId}/weakness/report-loading`);
     }
 }
 

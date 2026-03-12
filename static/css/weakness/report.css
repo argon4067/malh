@@ -362,6 +362,10 @@
     flex-wrap: wrap;
 }
 
+.bottom-action-form {
+    margin: 0;
+}
+
 .btn-primary,
 .btn-secondary {
     display: inline-flex;
@@ -373,6 +377,7 @@
     font-weight: 700;
     text-decoration: none;
     transition: all 0.2s;
+    cursor: pointer;
 }
 
 .btn-primary {

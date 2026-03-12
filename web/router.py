@@ -82,6 +82,7 @@ from services.storage_cleanup_service import (
     prune_empty_audio_tree,
     prune_empty_dirs_upward,
 )
+from services.interview_cleanup_service import purge_interview_audio_files
 
 from services.analysis_service import (
     analyze_answer_by_sel_id,
@@ -98,6 +99,9 @@ web_router = APIRouter()
 SUBMIT_ANALYSIS_PROGRESS: dict[int, dict[str, object]] = {}
 SUBMIT_ANALYSIS_LOCK = threading.Lock()
 SUBMIT_ANALYSIS_TIMEOUT_SEC = 180
+WEAKNESS_REPORT_PROGRESS: dict[int, dict[str, object]] = {}
+WEAKNESS_REPORT_LOCK = threading.Lock()
+WEAKNESS_REPORT_TIMEOUT_SEC = 180
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +164,77 @@ def _get_owned_interview_session(db: Session, user_id: int, session_id: int) -> 
     if not session:
         raise HTTPException(status_code=404, detail="면접 세션을 찾을 수 없습니다.")
     return session
+
+
+def _get_interview_session_or_404(db: Session, session_id: int) -> InterviewSession:
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.inter_id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="면접 세션을 찾을 수 없습니다.")
+    return session
+
+
+def _has_session_purpose(session: InterviewSession, purpose: str) -> bool:
+    return bool(session.question_set and session.question_set.set_purpose == purpose)
+
+
+def _ensure_session_purpose(
+    session: InterviewSession,
+    purpose: str,
+    detail: str,
+) -> None:
+    if not _has_session_purpose(session, purpose):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        )
+
+
+def _load_session_question_items(
+    db: Session,
+    session_id: int,
+) -> list[dict[str, int | str | bool]]:
+    rows = (
+        db.query(
+            SelectQuestion.sel_id.label("sel_id"),
+            SelectQuestion.sel_order_no.label("sel_order_no"),
+            Question.qust_question_text.label("question_text"),
+            AudioRecording.recording_id.label("recording_id"),
+            AudioRecording.duration_sec.label("duration_sec"),
+        )
+        .join(Question, Question.qust_id == SelectQuestion.qust_id)
+        .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == session_id)
+        .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
+        .all()
+    )
+
+    return [
+        {
+            "sel_id": row.sel_id,
+            "sel_order_no": row.sel_order_no,
+            "question_text": row.question_text,
+            "is_recorded": row.recording_id is not None,
+            "duration_sec": int(row.duration_sec or 0),
+        }
+        for row in rows
+    ]
+
+
+def _get_session_recording_counts(db: Session, session_id: int) -> tuple[int, int]:
+    rows = (
+        db.query(AudioRecording.recording_id.label("recording_id"))
+        .select_from(SelectQuestion)
+        .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == session_id)
+        .all()
+    )
+    total_questions = len(rows)
+    recorded_questions = sum(1 for row in rows if row.recording_id is not None)
+    return total_questions, recorded_questions
 
 
 # 세션의 분석 결과
@@ -250,31 +325,7 @@ def _get_latest_session_id_by_resume(db: Session, resume_id: int) -> int | None:
 
 
 def _purge_session_audio_files(db: Session, inter_id: int) -> dict[str, int]:
-    rows = db.query(AudioRecording).filter(AudioRecording.inter_id == inter_id).all()
-    removed_files = 0
-    for row in rows:
-        rel = (row.file_path or "").strip()
-        if rel:
-            abs_path = Path(settings.STORAGE_DIR) / rel
-            try:
-                if abs_path.exists():
-                    abs_path.unlink()
-                    removed_files += 1
-            except Exception:
-                # Keep idempotent behavior; ignore per-file delete errors.
-                pass
-            prune_empty_dirs_upward(Path(settings.STORAGE_DIR), rel)
-
-    removed_audio = db.query(AudioRecording).filter(AudioRecording.inter_id == inter_id).delete(
-        synchronize_session=False
-    )
-    db.commit()
-    # Safety net for any leftover empty directories.
-    prune_empty_audio_tree(Path(settings.STORAGE_DIR))
-    return {
-        "removed_audio": int(removed_audio),
-        "removed_files": int(removed_files),
-    }
+    return purge_interview_audio_files(db=db, inter_id=inter_id)
 
 
 def _update_submit_progress(inter_id: int, **fields: object) -> None:
@@ -284,6 +335,15 @@ def _update_submit_progress(inter_id: int, **fields: object) -> None:
             return
         base.update(fields)
         SUBMIT_ANALYSIS_PROGRESS[inter_id] = base
+
+
+def _update_weakness_report_progress(inter_id: int, **fields: object) -> None:
+    with WEAKNESS_REPORT_LOCK:
+        base = WEAKNESS_REPORT_PROGRESS.get(inter_id, {})
+        if base.get("done"):
+            return
+        base.update(fields)
+        WEAKNESS_REPORT_PROGRESS[inter_id] = base
 
 
 def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
@@ -652,6 +712,233 @@ def _run_submit_analysis_job(inter_id: int) -> None:
             done=True,
             ok=False,
             message=f"분석 작업 실패: {exc}",
+            finished_at=int(time.time()),
+        )
+    finally:
+        db.close()
+
+
+def _run_weakness_report_job(inter_id: int) -> None:
+    db = SessionLocal()
+    try:
+        job_started = time.monotonic()
+        rows = (
+            db.query(
+                SelectQuestion.sel_id.label("sel_id"),
+                SelectQuestion.sel_order_no.label("sel_order_no"),
+                Question.qust_question_text.label("question_text"),
+                AudioRecording.file_path.label("file_path"),
+                AudioRecording.duration_sec.label("duration_sec"),
+                Transcript.transcript_text.label("transcript_text"),
+            )
+            .join(Question, Question.qust_id == SelectQuestion.qust_id)
+            .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
+            .outerjoin(Transcript, Transcript.sel_id == SelectQuestion.sel_id)
+            .filter(SelectQuestion.inter_id == inter_id)
+            .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
+            .all()
+        )
+
+        total = len(rows)
+        if total == 0:
+            _update_weakness_report_progress(
+                inter_id,
+                status="failed",
+                done=True,
+                ok=False,
+                total=0,
+                completed=0,
+                failed_count=0,
+                message="보강 세션 질문을 찾을 수 없습니다.",
+                finished_at=int(time.time()),
+            )
+            return
+
+        _update_weakness_report_progress(
+            inter_id,
+            status="running",
+            total=total,
+            completed=0,
+            failed_count=0,
+            message="개선 추적 리포트 준비를 시작합니다.",
+            done=False,
+            ok=False,
+        )
+
+        processed: list[dict[str, int | str]] = []
+        failed: list[dict[str, int | str]] = []
+        timed_out = False
+
+        for index, row in enumerate(rows, start=1):
+            if time.monotonic() - job_started > WEAKNESS_REPORT_TIMEOUT_SEC:
+                timed_out = True
+                remaining_rows = rows[index - 1 :]
+                for pending in remaining_rows:
+                    failed.append(
+                        {
+                            "sel_id": int(pending.sel_id),
+                            "sel_order_no": int(pending.sel_order_no),
+                            "reason": "리포트 준비 시간 초과로 중단되었습니다.",
+                        }
+                    )
+                _update_weakness_report_progress(
+                    inter_id,
+                    completed=len(processed) + len(failed),
+                    failed_count=len(failed),
+                    message="리포트 준비 제한 시간을 초과해 작업을 중단했습니다.",
+                )
+                break
+
+            sel_id = int(row.sel_id)
+            sel_order_no = int(row.sel_order_no)
+
+            _update_weakness_report_progress(
+                inter_id,
+                current_index=index,
+                current_sel_id=sel_id,
+                current_sel_order_no=sel_order_no,
+                message=f"보강 Q{sel_order_no} 분석 중...",
+            )
+
+            if not (row.file_path or "").strip():
+                failed.append(
+                    {
+                        "sel_id": sel_id,
+                        "sel_order_no": sel_order_no,
+                        "reason": "녹음 파일이 없습니다.",
+                    }
+                )
+                _update_weakness_report_progress(
+                    inter_id,
+                    completed=index,
+                    failed_count=len(failed),
+                    message=f"보강 Q{sel_order_no} 녹음 없음",
+                )
+                continue
+
+            transcript_text = (row.transcript_text or "").strip()
+            if not transcript_text:
+                _update_weakness_report_progress(inter_id, message=f"보강 Q{sel_order_no} STT 처리 중...")
+                try:
+                    _, transcript = run_stt_and_update(db=db, inter_id=inter_id, sel_id=sel_id)
+                    transcript_text = (transcript.transcript_text or "").strip()
+                except Exception as exc:
+                    db.rollback()
+                    failed.append(
+                        {
+                            "sel_id": sel_id,
+                            "sel_order_no": sel_order_no,
+                            "reason": str(exc),
+                        }
+                    )
+                    _update_weakness_report_progress(
+                        inter_id,
+                        completed=index,
+                        failed_count=len(failed),
+                        message=f"보강 Q{sel_order_no} STT 실패",
+                    )
+                    continue
+
+            if not transcript_text:
+                failed.append(
+                    {
+                        "sel_id": sel_id,
+                        "sel_order_no": sel_order_no,
+                        "reason": "전사 텍스트가 비어 있습니다.",
+                    }
+                )
+                _update_weakness_report_progress(
+                    inter_id,
+                    completed=index,
+                    failed_count=len(failed),
+                    message=f"보강 Q{sel_order_no} 텍스트 없음",
+                )
+                continue
+
+            try:
+                _update_weakness_report_progress(inter_id, message=f"보강 Q{sel_order_no} 전사 보정 중...")
+                _ = _build_effective_transcript_for_evaluation(
+                    db=db,
+                    inter_id=inter_id,
+                    sel_id=sel_id,
+                    question_text=row.question_text,
+                    transcript_text=transcript_text,
+                )
+
+                _update_weakness_report_progress(inter_id, message=f"보강 Q{sel_order_no} 발화 지표 계산 중...")
+                score_payload = calculate_speech_scores(
+                    transcript_text=transcript_text,
+                    duration_sec=int(row.duration_sec or 0),
+                    question_text=row.question_text,
+                )
+                upsert_speech_summary(db=db, sel_id=sel_id, score=score_payload)
+                upsert_speech_detail(db=db, sel_id=sel_id, score=score_payload)
+
+                _update_weakness_report_progress(inter_id, message=f"보강 Q{sel_order_no} 답변 내용 분석 중...")
+                analyze_answer_by_sel_id(
+                    db=db,
+                    sel_id=sel_id,
+                    model="gpt-4o-mini",
+                )
+
+                processed.append({"sel_id": sel_id, "sel_order_no": sel_order_no})
+                _update_weakness_report_progress(
+                    inter_id,
+                    completed=index,
+                    failed_count=len(failed),
+                    message=f"보강 Q{sel_order_no} 완료",
+                )
+            except Exception as exc:
+                db.rollback()
+                logger.exception(
+                    "WEAKNESS_REPORT_ITEM_FAILED inter_id=%s sel_id=%s err=%s",
+                    inter_id,
+                    sel_id,
+                    exc,
+                )
+                failed.append(
+                    {
+                        "sel_id": sel_id,
+                        "sel_order_no": sel_order_no,
+                        "reason": str(exc),
+                    }
+                )
+                _update_weakness_report_progress(
+                    inter_id,
+                    completed=index,
+                    failed_count=len(failed),
+                    message=f"보강 Q{sel_order_no} 분석 실패",
+                )
+
+        if not failed:
+            _update_weakness_report_progress(inter_id, message="개선 추적 리포트를 정리 중입니다.")
+            build_improvement_report(db=db, session_id=inter_id)
+
+        _update_weakness_report_progress(
+            inter_id,
+            status="done",
+            done=True,
+            ok=len(failed) == 0,
+            processed_count=len(processed),
+            failed_count=len(failed),
+            processed=processed,
+            failed=failed,
+            timed_out=timed_out,
+            message=(
+                "개선 추적 리포트가 준비되었습니다."
+                if not failed
+                else "일부 보강 질문 분석에 실패했습니다."
+            ),
+            finished_at=int(time.time()),
+        )
+    except Exception as exc:
+        db.rollback()
+        _update_weakness_report_progress(
+            inter_id,
+            status="failed",
+            done=True,
+            ok=False,
+            message=f"리포트 준비 작업 실패: {exc}",
             finished_at=int(time.time()),
         )
     finally:
@@ -1188,31 +1475,7 @@ async def interview_questions(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    rows = (
-        db.query(
-            SelectQuestion.sel_id.label("sel_id"),
-            SelectQuestion.sel_order_no.label("sel_order_no"),
-            Question.qust_question_text.label("question_text"),
-            AudioRecording.recording_id.label("recording_id"),
-            AudioRecording.duration_sec.label("duration_sec"),
-        )
-        .join(Question, Question.qust_id == SelectQuestion.qust_id)
-        .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
-        .filter(SelectQuestion.inter_id == session_id)
-        .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
-        .all()
-    )
-
-    question_items = [
-        {
-            "sel_id": row.sel_id,
-            "sel_order_no": row.sel_order_no,
-            "question_text": row.question_text,
-            "is_recorded": row.recording_id is not None,
-            "duration_sec": int(row.duration_sec or 0),
-        }
-        for row in rows
-    ]
+    question_items = _load_session_question_items(db=db, session_id=session_id)
     total_questions = len(question_items)
     recorded_questions = sum(1 for item in question_items if item["is_recorded"])
 
@@ -1448,44 +1711,16 @@ async def weakness_questions(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    session = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.inter_id == session_id)
-        .first()
-    )
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="면접 세션을 찾을 수 없습니다.",
-        )
+    session = _get_interview_session_or_404(db=db, session_id=session_id)
 
     # DEFAULT 세션으로 직접 들어오면 wait로 보냄
-    if not session.question_set or session.question_set.set_purpose != "WEAKNESS":
+    if not _has_session_purpose(session, "WEAKNESS"):
         return RedirectResponse(
             url=f"/interviews/{session_id}/weakness/wait",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
-    rows = (
-        db.query(
-            SelectQuestion.sel_id.label("sel_id"),
-            SelectQuestion.sel_order_no.label("sel_order_no"),
-            Question.qust_question_text.label("question_text"),
-        )
-        .join(Question, Question.qust_id == SelectQuestion.qust_id)
-        .filter(SelectQuestion.inter_id == session_id)
-        .order_by(SelectQuestion.sel_order_no.asc(), SelectQuestion.sel_id.asc())
-        .all()
-    )
-
-    weakness_items = [
-        {
-            "sel_id": row.sel_id,
-            "sel_order_no": row.sel_order_no,
-            "question_text": row.question_text,
-        }
-        for row in rows
-    ]
+    weakness_items = _load_session_question_items(db=db, session_id=session_id)
 
     return templates.TemplateResponse(
         "weakness/questions.html",
@@ -1503,19 +1738,10 @@ async def weakness_wait(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    session = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.inter_id == session_id)
-        .first()
-    )
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="면접 세션을 찾을 수 없습니다.",
-        )
+    session = _get_interview_session_or_404(db=db, session_id=session_id)
 
     # 이미 WEAKNESS 세션이면 바로 목록 페이지로
-    if session.question_set and session.question_set.set_purpose == "WEAKNESS":
+    if _has_session_purpose(session, "WEAKNESS"):
         return RedirectResponse(
             url=f"/interviews/{session_id}/weakness",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
@@ -1538,11 +1764,11 @@ async def start_weakness_question_generation(
     user = _get_login_user(request, db)
     source_session = _get_owned_interview_session(db, user.user_id, session_id)
 
-    if not source_session.question_set or source_session.question_set.set_purpose != "DEFAULT":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="기본 면접 결과에서만 약점 보강 질문을 생성할 수 있습니다.",
-        )
+    _ensure_session_purpose(
+        source_session,
+        "DEFAULT",
+        "기본 면접 결과에서만 약점 보강 질문을 생성할 수 있습니다.",
+    )
 
     if source_session.inter_status != "DONE":
         raise HTTPException(
@@ -1565,6 +1791,121 @@ async def start_weakness_question_generation(
     }
 
 
+@web_router.get("/interviews/{session_id}/weakness/report-loading")
+async def weakness_report_loading(
+    request: Request,
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    session = _get_interview_session_or_404(db=db, session_id=session_id)
+    _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
+
+    return templates.TemplateResponse(
+        "weakness/report_loading.html",
+        {
+            "request": request,
+            "session_id": session_id,
+        },
+    )
+
+
+@web_router.post(
+    "/api/interviews/{inter_id}/weakness/report/start",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_weakness_report_job(
+    inter_id: int,
+    db: Session = Depends(get_db),
+):
+    session = _get_interview_session_or_404(db=db, session_id=inter_id)
+    _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
+    total_questions, recorded_questions = _get_session_recording_counts(
+        db=db,
+        session_id=inter_id,
+    )
+
+    if total_questions == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="보강 질문이 없어 리포트를 생성할 수 없습니다.",
+        )
+    if recorded_questions < total_questions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{total_questions}개 보강 질문의 녹음을 모두 완료해 주세요. ({recorded_questions}/{total_questions} 완료)",
+        )
+
+    with WEAKNESS_REPORT_LOCK:
+        progress = WEAKNESS_REPORT_PROGRESS.get(inter_id)
+        if progress and progress.get("status") == "running":
+            return {
+                "ok": True,
+                "inter_id": inter_id,
+                "status": "running",
+                "message": "Weakness report job is already running.",
+            }
+        WEAKNESS_REPORT_PROGRESS[inter_id] = {
+            "status": "running",
+            "done": False,
+            "ok": False,
+            "total": 0,
+            "completed": 0,
+            "failed_count": 0,
+            "message": "작업을 준비 중입니다.",
+            "started_at": int(time.time()),
+        }
+
+    worker = threading.Thread(target=_run_weakness_report_job, args=(inter_id,), daemon=True)
+    worker.start()
+    return {
+        "ok": True,
+        "inter_id": inter_id,
+        "status": "started",
+    }
+
+
+@web_router.get(
+    "/api/interviews/{inter_id}/weakness/report/progress",
+    status_code=status.HTTP_200_OK,
+)
+async def get_weakness_report_progress(
+    inter_id: int,
+):
+    with WEAKNESS_REPORT_LOCK:
+        progress = dict(WEAKNESS_REPORT_PROGRESS.get(inter_id, {}))
+        if progress and progress.get("status") == "running" and not progress.get("done"):
+            started_at = int(progress.get("started_at") or 0)
+            if started_at and (int(time.time()) - started_at) > WEAKNESS_REPORT_TIMEOUT_SEC:
+                total = int(progress.get("total") or 0)
+                completed = int(progress.get("completed") or 0)
+                existing_failed = int(progress.get("failed_count") or 0)
+                progress.update(
+                    {
+                        "status": "failed",
+                        "done": True,
+                        "ok": False,
+                        "timed_out": True,
+                        "failed_count": max(existing_failed, max(0, total - completed)),
+                        "message": "리포트 준비 시간이 초과되어 작업을 종료했습니다. 다시 시도해 주세요.",
+                        "finished_at": int(time.time()),
+                    }
+                )
+                WEAKNESS_REPORT_PROGRESS[inter_id] = dict(progress)
+
+    if not progress:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Weakness report job not found.",
+        )
+
+    total = int(progress.get("total") or 0)
+    completed = int(progress.get("completed") or 0)
+    percent = int((completed / total) * 100) if total > 0 else 0
+    progress["percent"] = max(0, min(100, percent))
+    progress["inter_id"] = inter_id
+    return progress
+
+
 # 개선 추적 리포트 메인
 @web_router.get("/interviews/{session_id}/weakness/report")
 async def weakness_report(
@@ -1572,22 +1913,8 @@ async def weakness_report(
     session_id: int,
     db: Session = Depends(get_db),
 ):
-    session = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.inter_id == session_id)
-        .first()
-    )
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="면접 세션을 찾을 수 없습니다.",
-        )
-
-    if not session.question_set or session.question_set.set_purpose != "WEAKNESS":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="약점 보강 세션이 아닙니다.",
-        )
+    session = _get_interview_session_or_404(db=db, session_id=session_id)
+    _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
 
     _ensure_session_analysis_ready(db=db, inter_id=session_id)
 
@@ -1614,22 +1941,8 @@ async def weakness_report_detail(
     question_id: int,
     db: Session = Depends(get_db),
 ):
-    session = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.inter_id == session_id)
-        .first()
-    )
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="면접 세션을 찾을 수 없습니다.",
-        )
-
-    if not session.question_set or session.question_set.set_purpose != "WEAKNESS":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="약점 보강 세션이 아닙니다.",
-        )
+    session = _get_interview_session_or_404(db=db, session_id=session_id)
+    _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
 
     _ensure_session_analysis_ready(db=db, inter_id=session_id)
 
@@ -1647,6 +1960,21 @@ async def weakness_report_detail(
             "detail": detail_payload["detail"],
         },
     )
+
+
+@web_router.post("/interviews/{session_id}/weakness/report/home")
+async def weakness_report_go_home(
+    request: Request,
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    user = _get_login_user(request, db)
+    session = _get_owned_interview_session(db, user.user_id, session_id)
+    _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
+
+    _purge_session_audio_files(db=db, inter_id=session_id)
+
+    return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @web_router.get("/interviews/{session_id}/weakness/{question_id}")
@@ -1981,17 +2309,10 @@ async def start_submit_analysis_job(
     inter_id: int,
     db: Session = Depends(get_db),
 ):
-    rows = (
-        db.query(
-            SelectQuestion.sel_id.label("sel_id"),
-            AudioRecording.recording_id.label("recording_id"),
-        )
-        .outerjoin(AudioRecording, AudioRecording.sel_id == SelectQuestion.sel_id)
-        .filter(SelectQuestion.inter_id == inter_id)
-        .all()
+    total_questions, recorded_questions = _get_session_recording_counts(
+        db=db,
+        session_id=inter_id,
     )
-    total_questions = len(rows)
-    recorded_questions = sum(1 for row in rows if row.recording_id is not None)
 
     if total_questions != 5:
         raise HTTPException(

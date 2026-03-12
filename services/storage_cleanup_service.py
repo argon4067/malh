@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 
@@ -64,3 +65,41 @@ def prune_empty_audio_tree(storage_dir: Path, base_rel: str = "audio/interviews"
             continue
 
     return removed
+
+
+def remove_session_audio_tree(
+    storage_dir: Path,
+    inter_id: int,
+    base_rel: str = "audio/interviews",
+) -> bool:
+    """
+    Remove a single interview session tree under storage/audio/interviews/{inter_id}
+    and then best-effort prune now-empty parent directories up to the storage root.
+    """
+    base_dir = (storage_dir / base_rel / str(inter_id)).resolve()
+    root = storage_dir.resolve()
+
+    if not _is_within_root(root, base_dir):
+        return False
+    if not base_dir.exists():
+        return False
+
+    try:
+        shutil.rmtree(base_dir)
+    except FileNotFoundError:
+        return False
+
+    current = base_dir.parent
+    while current == root or _is_within_root(root, current):
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        except Exception:
+            break
+
+        if current == root:
+            break
+        current = current.parent
+
+    return True

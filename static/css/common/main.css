@@ -40,14 +40,19 @@ nav a:hover::after, nav a.active::after { width: 100%; }
 
 .auth-links { font-size: 15px; font-weight: 500; display: flex; align-items: center; }
 .auth-links a { margin-left: 20px; }
-.user-greeting {
+.user-greeting-link {
+    margin-left: 0;
     margin-right: 15px;
     font-weight: 700;
     color: #333;
     max-width: 200px;
+    display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+.user-greeting-link:hover {
+    color: var(--primary-orange);
 }
 .logout-link {
     color: #666;
@@ -147,7 +152,7 @@ footer {
     }
     .auth-links a { margin-left: 10px; }
     .auth-links .btn-signup { padding: 8px 14px; }
-    .user-greeting {
+    .user-greeting-link {
         max-width: 110px;
         margin-right: 8px;
         font-size: 12px;

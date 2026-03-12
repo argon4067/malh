@@ -199,6 +199,26 @@
 .ld-label { color: var(--text-sub); }
 .ld-value { font-weight: 600; color: var(--text-main); }
 
+.help-card-trigger {
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+.help-card-trigger:hover {
+    border-color: #cfd9e6;
+}
+.score-card.help-card-trigger:hover,
+.metric-box.help-card-trigger:hover {
+    box-shadow: 0 10px 24px rgba(15, 53, 104, 0.12);
+}
+.length-status-box.help-card-trigger:hover,
+.length-detail-item.help-card-trigger:hover {
+    background-color: #f3f7fc;
+}
+.help-card-trigger:focus-visible {
+    outline: 3px solid rgba(15, 53, 104, 0.24);
+    outline-offset: 3px;
+}
+
 .report-box { background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #eee; margin-top: 24px; }
 .report-box.analysis { border-left: 5px solid var(--primary-navy); }
 .report-header { font-size: 20px; font-weight: 700; margin-bottom: 12px; }

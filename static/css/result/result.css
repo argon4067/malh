@@ -134,6 +134,8 @@
 }
 
 .weakness-rank-content {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-width: 0;
     width: 100%;
@@ -164,23 +166,25 @@
 
 .weakness-related-row {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
     margin-bottom: 14px;
-    flex-wrap: wrap;
+    min-height: 72px;
 }
 
 .weakness-related-label {
     font-size: 14px;
     font-weight: 700;
     color: var(--primary-navy);
-    padding-top: 4px;
+    padding-top: 0;
 }
 
 .weakness-related-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    align-content: flex-start;
 }
 
 .weakness-related-tag {
@@ -228,6 +232,26 @@
     line-height: 1.7;
     padding: 22px;
     text-align: center;
+}
+
+/* [Question Result List] */
+.result-list-section {
+    margin-bottom: 26px;
+    background: linear-gradient(180deg, #f4f8ff 0%, #ffffff 100%);
+    border: 1px solid #d9e4f3;
+    border-radius: 22px;
+    padding: 30px;
+    box-shadow: 0 8px 24px rgba(15, 53, 104, 0.07);
+}
+
+.result-list-head {
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.result-list-title {
+    margin: 0;
 }
 
 /* [Result Card] */
@@ -467,7 +491,15 @@
         padding: 22px;
     }
 
+    .result-list-section {
+        padding: 22px;
+    }
+
     .weakness-summary-head {
+        margin-bottom: 18px;
+    }
+
+    .result-list-head {
         margin-bottom: 18px;
     }
 
@@ -477,6 +509,10 @@
 
     .weakness-summary-desc {
         font-size: 15px;
+    }
+
+    .result-list-title {
+        width: 100%;
     }
 
     .weakness-top3-list {

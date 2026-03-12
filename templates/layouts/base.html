@@ -9,23 +9,29 @@
   {% block head %}{% endblock %}
 </head>
 <body>
+  {% set current_path = request.url.path %}
+  {% set login_user = request.cookies.get("login_user") %}
   <header>
     <div class="logo-container" onclick="location.href='/'">
         <img src="/static/img/malh_logo.png" alt="말해뭐해" class="logo-img">
     </div>
     <nav>
         <ul>
-            <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">메인</a></li>
-            <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
-            <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+            <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
+            <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
+            <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+            {% if login_user %}
+                <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+                <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+            {% endif %}
         </ul>
     </nav>
     <div class="auth-links">
         {% block auth_links %}
-            {% if request.cookies.get("login_user") %}
-                <span class="user-greeting">
-                    {{ request.cookies.get("login_user") }}님 환영합니다
-                </span>
+            {% if login_user %}
+                <a href="/account/password" class="user-greeting-link" title="비밀번호 변경">
+                    {{ login_user }}님 환영합니다
+                </a>
                 <a href="/auth/logout" class="logout-link">로그아웃</a>
             {% else %}
                 <a href="/auth/login">로그인</a>
@@ -41,9 +47,13 @@
     <div class="mobile-menu" id="mobileMenu">
         <nav class="mobile-nav">
             <ul>
-                <li><a href="/" class="{% if request.url.path == '/' %}active{% endif %}">메인</a></li>
-                <li><a href="/service-intro" class="{% if request.url.path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
-                <li><a href="/how-to-use" class="{% if request.url.path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+                <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
+                <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
+                <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+                {% if login_user %}
+                    <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+                    <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+                {% endif %}
             </ul>
         </nav>
     </div>

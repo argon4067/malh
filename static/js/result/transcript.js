@@ -312,7 +312,15 @@ $(function () {
         bodyStyle.paddingRight = bodyOriginalPaddingRight;
     }
 
-    $(".help-text-trigger, .help-trigger").on("click", function () {
+    $(".help-card-trigger, .help-text-trigger, .help-trigger").on("click", function () {
+        const key = String($(this).data("help-key") || "");
+        openHelpModal(key);
+    });
+    $(".help-card-trigger").on("keydown", function (event) {
+        if (event.key !== "Enter" && event.key !== " ") {
+            return;
+        }
+        event.preventDefault();
         const key = String($(this).data("help-key") || "");
         openHelpModal(key);
     });

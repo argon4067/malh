@@ -194,8 +194,9 @@
         </section>
 
         <div class="bottom-action">
-            <a href="/interviews/{{ report.source_session_id }}/results" class="btn-secondary">1차 결과 다시 보기</a>
-            <a href="/interviews/{{ session_id }}/weakness" class="btn-primary">보강 질문 목록으로</a>
+            <form method="post" action="/interviews/{{ session_id }}/weakness/report/home" class="bottom-action-form">
+                <button type="submit" class="btn-primary">홈으로 가기</button>
+            </form>
         </div>
     </div>
 </div>
