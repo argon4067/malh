@@ -145,40 +145,6 @@
 
         <section class="section-block">
             <div class="section-head">
-                <h3 class="section-title">질문별 재검증 목록</h3>
-                <p class="section-desc">
-                    2차 질문이 어떤 1차 약점을 다시 검증했는지 확인할 수 있습니다.
-                </p>
-            </div>
-
-            <div class="question-list">
-                {% for item in report.question_items %}
-                <a class="question-card" href="/interviews/{{ session_id }}/weakness/report/{{ item.sel_id }}">
-                    <div class="question-meta">
-                        <span class="q-badge">Q{{ item.sel_order_no }}</span>
-                        <span class="target-badge">{{ item.target_label }}</span>
-                    </div>
-
-                    <div class="question-text">{{ item.question_text }}</div>
-
-                    <div class="question-sub">
-                        연결된 1차 질문:
-                        {% if item.source_sel_order_no %}
-                            Q{{ item.source_sel_order_no }}
-                        {% else %}
-                            연결 정보 없음
-                        {% endif %}
-                        · 결과: {{ item.status }}
-                        · 변화:
-                        {% if item.delta >= 0 %}+{% endif %}{{ item.delta }}
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="section-block">
-            <div class="section-head">
                 <h3 class="section-title">다음 면접 전 우선 보완 3가지</h3>
             </div>
 

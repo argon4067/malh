@@ -3,6 +3,7 @@ import threading
 import time
 import logging
 import json
+import copy
 from typing import List
 
 from fastapi import (
@@ -101,6 +102,8 @@ SUBMIT_ANALYSIS_PROGRESS: dict[int, dict[str, object]] = {}
 SUBMIT_ANALYSIS_LOCK = threading.Lock()
 SUBMIT_ANALYSIS_TIMEOUT_SEC = 180
 WEAKNESS_REPORT_PROGRESS: dict[int, dict[str, object]] = {}
+WEAKNESS_REPORT_CACHE: dict[int, dict[str, object]] = {}
+WEAKNESS_REPORT_CACHE_LOCK = threading.Lock()
 WEAKNESS_REPORT_LOCK = threading.Lock()
 WEAKNESS_REPORT_TIMEOUT_SEC = 180
 
@@ -345,6 +348,21 @@ def _update_weakness_report_progress(inter_id: int, **fields: object) -> None:
             return
         base.update(fields)
         WEAKNESS_REPORT_PROGRESS[inter_id] = base
+
+def _get_cached_weakness_report(inter_id: int) -> dict[str, object] | None:
+    with WEAKNESS_REPORT_CACHE_LOCK:
+        cached = WEAKNESS_REPORT_CACHE.get(inter_id)
+        return copy.deepcopy(cached) if cached is not None else None
+
+
+def _set_cached_weakness_report(inter_id: int, report: dict[str, object]) -> None:
+    with WEAKNESS_REPORT_CACHE_LOCK:
+        WEAKNESS_REPORT_CACHE[inter_id] = copy.deepcopy(report)
+
+
+def _invalidate_cached_weakness_report(inter_id: int) -> None:
+    with WEAKNESS_REPORT_CACHE_LOCK:
+        WEAKNESS_REPORT_CACHE.pop(inter_id, None)
 
 
 def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
@@ -932,7 +950,8 @@ def _run_weakness_report_job(inter_id: int) -> None:
 
         if not failed:
             _update_weakness_report_progress(inter_id, message="개선 추적 리포트를 정리 중입니다.")
-            build_improvement_report(db=db, session_id=inter_id)
+            report = build_improvement_report(db=db, session_id=inter_id)
+            _set_cached_weakness_report(inter_id, report)
 
         _update_weakness_report_progress(
             inter_id,
@@ -1921,6 +1940,8 @@ async def start_weakness_report_job(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"{total_questions}개 보강 질문의 녹음을 모두 완료해 주세요. ({recorded_questions}/{total_questions} 완료)",
         )
+    
+    _invalidate_cached_weakness_report(inter_id)
 
     with WEAKNESS_REPORT_LOCK:
         progress = WEAKNESS_REPORT_PROGRESS.get(inter_id)
@@ -2003,12 +2024,25 @@ async def weakness_report(
     session = _get_interview_session_or_404(db=db, session_id=session_id)
     _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
 
+    cached_report = _get_cached_weakness_report(session_id)
+    if cached_report is not None:
+        return templates.TemplateResponse(
+            "weakness/report.html",
+            {
+                "request": request,
+                "session_id": session_id,
+                "report": cached_report,
+            },
+        )
+
+    # 캐시가 없을 때만 1회 계산
     _ensure_session_analysis_ready(db=db, inter_id=session_id)
 
     report = build_improvement_report(
         db=db,
         session_id=session_id,
     )
+    _set_cached_weakness_report(session_id, report)
 
     return templates.TemplateResponse(
         "weakness/report.html",
@@ -2018,7 +2052,6 @@ async def weakness_report(
             "report": report,
         },
     )
-
 
 # 개선 추적 리포트 상세
 @web_router.get("/interviews/{session_id}/weakness/report/{question_id}")
@@ -2031,7 +2064,12 @@ async def weakness_report_detail(
     session = _get_interview_session_or_404(db=db, session_id=session_id)
     _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
 
-    _ensure_session_analysis_ready(db=db, inter_id=session_id)
+    cached_report = _get_cached_weakness_report(session_id)
+    if cached_report is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="개선 추적 리포트가 아직 준비되지 않았습니다.",
+        )
 
     detail_payload = build_improvement_report_detail(
         db=db,
@@ -2060,6 +2098,7 @@ async def weakness_report_go_home(
     _ensure_session_purpose(session, "WEAKNESS", "약점 보강 세션이 아닙니다.")
 
     _purge_session_audio_files(db=db, inter_id=session_id)
+    _invalidate_cached_weakness_report(session_id)
 
     return RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -2164,6 +2203,8 @@ async def upload_recording(
         duration_sec=duration_sec,
     )
 
+    _invalidate_cached_weakness_report(inter_id)
+
     return {
         "message": "Recording uploaded.",
         "inter_id": inter_id,
@@ -2214,6 +2255,8 @@ async def run_stt(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"STT 처리에 실패했습니다: {exc}",
         ) from exc
+    
+    _invalidate_cached_weakness_report(inter_id)
 
     return {
         "message": "STT completed.",
@@ -2266,6 +2309,7 @@ async def build_speech_score(
     )
     summary = upsert_speech_summary(db=db, sel_id=sel_id, score=score_payload)
     upsert_speech_detail(db=db, sel_id=sel_id, score=score_payload)
+    _invalidate_cached_weakness_report(inter_id)
 
     return {
         "message": "Speech score calculated.",
@@ -2718,6 +2762,9 @@ async def refine_transcript(
         ) from exc
 
     saved = upsert_refine_result(db=db, sel_id=sel_id, result=result)
+
+    _invalidate_cached_weakness_report(inter_id)
+
     applied = bool((saved.refined_text or "").strip())
     return {
         "message": "Transcript refine completed.",
