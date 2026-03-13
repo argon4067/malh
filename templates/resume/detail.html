@@ -195,25 +195,64 @@
                 <div class="card">
                     <div class="card-title">최근 연습 기록</div>
                     {% if practice_history %}
-                        <!-- 나중에 반복 렌더링 -->
+                        <ul class="history-list">
+                            {% for hist in practice_history %}
+                                <li class="history-item">
+                                    <span class="history-date">{{ hist.date }}</span>
+                                    <div class="history-scores">
+                                        <span class="score-overall">{{ hist.score }}점</span>
+                                        <div class="score-details" style="font-size: 11px; color: #888; text-align: right;">
+                                            답변 {{ hist.answer_score }} | 음성 {{ hist.speech_score }}
+                                        </div>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
                     {% else %}
                         <div class="empty-box">아직 연습 기록이 없습니다.</div>
                     {% endif %}
                 </div>
 
                 <div class="card">
-                    <div class="card-title">연습 후 약점 3가지</div>
+                    <div class="card-title">최근 약점 분석</div>
                     {% if weaknesses %}
-                        <!-- 나중에 반복 렌더링 -->
+                        <div class="weakness-list">
+                            {% for w in weaknesses %}
+                                <div class="weakness-item" style="margin-bottom: 20px;">
+                                    <div style="font-weight: 700; color: var(--primary-navy); margin-bottom: 5px;">{{ w.title }}</div>
+                                    <div style="font-size: 14px; color: var(--text-sub); line-height: 1.5;">{{ w.summary }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
                     {% else %}
                         <div class="empty-box">아직 약점 분석 결과가 없습니다.</div>
                     {% endif %}
                 </div>
 
                 <div class="card full-width">
-                    <div class="card-title">점수 변화</div>
+                    <div class="card-title">점수 변화 (최근 10회)</div>
+                    <div class="chart-legend" style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 20px; font-size: 13px;">
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="width: 12px; height: 12px; background-color: var(--primary-navy); border-radius: 2px;"></span>
+                            <span>답변 점수</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span style="width: 12px; height: 12px; background-color: var(--primary-orange); border-radius: 2px;"></span>
+                            <span>음성 점수</span>
+                        </div>
+                    </div>
                     {% if score_history %}
-                        <!-- 나중에 막대 그래프 렌더링 -->
+                        <div class="chart-container" style="display: flex; height: 250px; align-items: flex-end; justify-content: space-around; border-bottom: 2px solid #eee; padding-bottom: 40px; position: relative; gap: 10px;">
+                            {% for hist in score_history %}
+                                <div class="bar-group" style="display: flex; flex-direction: column; align-items: center; width: 8%; height: 100%; justify-content: flex-end; position: relative;">
+                                    <div class="bar-pair" style="display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 100%;">
+                                        <div class="bar bar-answer" title="답변: {{ hist.answer_score }}점" style="flex: 1; height: {{ hist.answer_score }}%; background-color: var(--primary-navy); border-radius: 2px 2px 0 0; transition: height 0.5s ease-out;"></div>
+                                        <div class="bar bar-speech" title="음성: {{ hist.speech_score }}점" style="flex: 1; height: {{ hist.speech_score }}%; background-color: var(--primary-orange); border-radius: 2px 2px 0 0; transition: height 0.5s ease-out;"></div>
+                                    </div>
+                                    <div class="x-axis-label" style="position: absolute; bottom: -30px; font-size: 11px; color: #999; white-space: nowrap;">{{ hist.date[5:] }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
                     {% else %}
                         <div class="empty-box">아직 점수 데이터가 없습니다.</div>
                     {% endif %}

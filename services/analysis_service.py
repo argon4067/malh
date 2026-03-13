@@ -2,6 +2,7 @@ import json
 import os
 import statistics
 from typing import Any
+from core.config import settings
 
 from openai import OpenAI
 from sqlalchemy.orm import Session, joinedload
@@ -18,7 +19,17 @@ from schemas.answer_analysis_schema import (
 )
 from services.weakness_service import get_session_weakness_top3
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def _get_openai_client():
+    api_key = settings.OPENAI_API_KEY or ""
+    if not api_key.strip():
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
+    try:
+        from openai import OpenAI  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("openai package is not installed.") from exc
+    return OpenAI(api_key=api_key)
+
+client = _get_openai_client()
 
 
 METRIC_LABEL_MAP = {

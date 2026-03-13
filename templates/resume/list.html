@@ -128,13 +128,13 @@
                                 <div class="stats-area">
                                     <div class="stats-row">
                                         <span>연습 횟수</span>
-                                        <span class="stats-val">0회</span>
+                                        <span class="stats-val">{{ resume.practice_count }}회</span>
                                     </div>
                                     <div class="stats-row">
                                         <span>마지막 사용</span>
                                         <span>
-                                            {% if resume.resume_created_at %}
-                                                {{ resume.resume_created_at.strftime('%Y-%m-%d') }}
+                                            {% if resume.last_used_at %}
+                                                {{ resume.last_used_at.strftime('%Y-%m-%d') }}
                                             {% else %}
                                                 -
                                             {% endif %}

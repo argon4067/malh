@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
