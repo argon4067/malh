@@ -3,8 +3,6 @@ import os
 import re
 from typing import Any, List, Optional
 
-from dotenv import load_dotenv
-from fastapi import HTTPException
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
@@ -38,16 +36,18 @@ from services.prompt.question.generate_weakness_prompt import (
 )
 
 from services.weakness_service import get_session_weakness_top3
-
-load_dotenv()
-
-DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-
+from core.config import settings
+from core.exceptions import (
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+    BaseAPIException,
+)
 
 def get_client() -> OpenAI:
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY가 없습니다.")
+        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
     return OpenAI(api_key=api_key)
 
 
@@ -93,7 +93,7 @@ def save_llm_run_failed(
 def get_resume_by_id(db: Session, resume_id: int) -> Resume:
     resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
     if not resume:
-        raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
+        raise NotFoundException(detail="이력서를 찾을 수 없습니다.")
     return resume
 
 
@@ -116,8 +116,7 @@ def get_resume_question_context(
     )
 
     if not structured:
-        raise HTTPException(
-            status_code=400,
+        raise BadRequestException(
             detail="이력서 구조화 데이터가 없습니다. 먼저 이력서 분석을 완료해야 합니다.",
         )
 
@@ -181,7 +180,7 @@ def generate_question_candidates_llm(
     purpose: str,
     count: int,
     existing_questions: List[str],
-    model: str = DEFAULT_MODEL,
+    model: str = settings.OPENAI_MODEL,
 ) -> QuestionCandidateResult:
     client = get_client()
 
@@ -227,7 +226,7 @@ def generate_weakness_question_candidates_llm(
     weakness_top3: list[dict[str, Any]],
     source_answers: list[dict[str, Any]],
     existing_questions: List[str],
-    model: str = DEFAULT_MODEL,
+    model: str = settings.OPENAI_MODEL,
 ) -> QuestionCandidateResult:
     client = get_client()
 
@@ -351,7 +350,7 @@ def filter_question_candidates(
         .first()
     )
     if not question_set:
-        raise HTTPException(status_code=404, detail="질문 세트를 찾을 수 없습니다.")
+        raise NotFoundException(detail="질문 세트를 찾을 수 없습니다.")
 
     question_set.set_status = "FILTERING"
     db.commit()
@@ -434,9 +433,9 @@ def filter_question_candidates(
 def generate_questions_for_resume(
     db: Session,
     resume_id: int,
-    target_count: int = 30,
+    target_count: int = settings.RESUME_DEFAULT_QUESTION_COUNT,
     purpose: str = "DEFAULT",
-    model: str = DEFAULT_MODEL,
+    model: str = settings.OPENAI_MODEL,
 ) -> QuestionSet:
     context = get_resume_question_context(db, resume_id)
     classification = context["classification"]
@@ -451,12 +450,13 @@ def generate_questions_for_resume(
     )
 
     try:
+        # 1차 생성 시도
         first_result = generate_question_candidates_llm(
             structured_payload=structured_payload,
             job_family=classification.class_job_family if classification else None,
             job_role=classification.class_job_role if classification else None,
             purpose=purpose,
-            count=50,
+            count=settings.RESUME_QUESTION_CANDIDATE_COUNT,
             existing_questions=[],
             model=model,
         )
@@ -484,6 +484,7 @@ def generate_questions_for_resume(
             set_id=question_set.set_id,
         )
 
+        # 타겟 수 미달 시 2차 생성 시도
         if selected_count < target_count:
             question_set.set_attempt = 2
             question_set.set_status = "GENERATING"
@@ -499,7 +500,7 @@ def generate_questions_for_resume(
                 job_family=classification.class_job_family if classification else None,
                 job_role=classification.class_job_role if classification else None,
                 purpose=purpose,
-                count=50,
+                count=settings.RESUME_QUESTION_CANDIDATE_COUNT,
                 existing_questions=existing_questions,
                 model=model,
             )
@@ -540,16 +541,13 @@ def generate_questions_for_resume(
         )
         db.commit()
 
-        question_set = (
-            db.query(QuestionSet)
-            .filter(QuestionSet.set_id == question_set.set_id)
-            .first()
-        )
-        if question_set:
-            question_set.set_status = "FAILED"
-            db.commit()
+        # 세션에서 객체가 분리되었을 수 있으므로 다시 조회
+        db.query(QuestionSet).filter(QuestionSet.set_id == question_set.set_id).update({"set_status": "FAILED"})
+        db.commit()
 
-        raise HTTPException(status_code=500, detail=f"질문 생성 실패: {e}") from e
+        if isinstance(e, BaseAPIException):
+            raise
+        raise BaseAPIException(detail=f"면접 질문 생성 과정에서 오류가 발생했습니다: {str(e)}") from e
 
 
 # =========================
@@ -596,7 +594,7 @@ def _build_weakness_distribution(weakness_top3: list[dict[str, Any]]) -> list[di
     elif len(weakness_top3) == 2:
         counts = [3, 2]
     else:
-        counts = [5]
+        counts = [settings.INTERVIEW_PRACTICE_QUESTION_COUNT]
 
     result = []
     for weakness, count in zip(weakness_top3, counts):
@@ -711,7 +709,7 @@ def _create_weakness_interview_session(
     )
 
     if not selected_questions:
-        raise HTTPException(status_code=500, detail="선택된 약점 재검증 질문이 없습니다.")
+        raise BaseAPIException(detail="선택된 약점 재검증 질문이 없습니다. 질문 생성 과정을 확인해주세요.")
 
     interview_session = InterviewSession(
         user_id=user_id,
@@ -737,11 +735,11 @@ def _create_weakness_interview_session(
     return interview_session
 
 
-# 1차 세션 기준 약점 재검증 질문 5개 생성
+# 1차 세션 기준 약점 재검증 질문 생성
 def generate_weakness_questions_for_session(
     db: Session,
     source_session_id: int,
-    model: str = DEFAULT_MODEL,
+    model: str = settings.OPENAI_MODEL,
 ) -> dict[str, Any]:
     source_session = (
         db.query(InterviewSession)
@@ -749,13 +747,13 @@ def generate_weakness_questions_for_session(
         .first()
     )
     if not source_session:
-        raise HTTPException(status_code=404, detail="원본 면접 세션을 찾을 수 없습니다.")
+        raise NotFoundException(detail="원본 면접 세션을 찾을 수 없습니다.")
 
     if source_session.inter_status != "DONE":
-        raise HTTPException(status_code=409, detail="면접 분석 완료 후에만 약점 재검증 질문을 생성할 수 있습니다.")
+        raise ConflictException(detail="기존 면접 분석이 완료된 후에만 약점 보완 연습이 가능합니다.")
 
     if not source_session.question_set or source_session.question_set.set_purpose != "DEFAULT":
-        raise HTTPException(status_code=409, detail="기본 면접 세션에서만 약점 재검증 질문을 생성할 수 있습니다.")
+        raise BadRequestException(detail="약점 보완 연습은 일반 면접 세션의 결과에 대해서만 진행할 수 있습니다.")
 
     resume_context = get_resume_question_context(db, source_session.resume_id)
     classification = resume_context["classification"]
@@ -768,7 +766,7 @@ def generate_weakness_questions_for_session(
         top_k=3,
     )
     if not weakness_top3:
-        raise HTTPException(status_code=409, detail="재검증할 약점 데이터가 없습니다.")
+        raise BadRequestException(detail="분석 결과 재검증할 약점이 발견되지 않았습니다. 다른 연습을 진행해보세요.")
 
     distributed_weaknesses = _build_weakness_distribution(weakness_top3)
     source_answer_items = _load_source_session_answer_items(db, source_session_id)
@@ -796,8 +794,8 @@ def generate_weakness_questions_for_session(
             model=model,
         )
 
-        if len(llm_result.questions) != 5:
-            raise RuntimeError(f"약점 재검증 질문 수가 5개가 아닙니다. (현재 {len(llm_result.questions)}개)")
+        if len(llm_result.questions) != settings.INTERVIEW_PRACTICE_QUESTION_COUNT:
+            raise BaseAPIException(detail=f"약점 재검증 질문 생성 개수가 일치하지 않습니다. (요청: {settings.INTERVIEW_PRACTICE_QUESTION_COUNT}, 생성: {len(llm_result.questions)})")
 
         evidence_overrides = _build_tracking_evidence_overrides(
             source_session_id=source_session_id,
@@ -843,11 +841,9 @@ def generate_weakness_questions_for_session(
             "source_session_id": source_session_id,
             "weakness_session_id": weakness_session.inter_id,
             "question_set_id": question_set.set_id if question_set else None,
-            "question_count": 5,
+            "question_count": settings.INTERVIEW_PRACTICE_QUESTION_COUNT,
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         db.rollback()
 
@@ -861,16 +857,13 @@ def generate_weakness_questions_for_session(
         )
         db.commit()
 
-        question_set = (
-            db.query(QuestionSet)
-            .filter(QuestionSet.set_id == question_set.set_id)
-            .first()
-        )
-        if question_set:
-            question_set.set_status = "FAILED"
-            db.commit()
+        # 세션에서 객체가 분리되었을 수 있으므로 다시 조회
+        db.query(QuestionSet).filter(QuestionSet.set_id == question_set.set_id).update({"set_status": "FAILED"})
+        db.commit()
 
-        raise HTTPException(status_code=500, detail=f"약점 재검증 질문 생성 실패: {e}") from e
+        if isinstance(e, (BaseAPIException, ConflictException, BadRequestException, NotFoundException)):
+            raise
+        raise BaseAPIException(detail=f"약점 재검증 질문 생성 중 오류가 발생했습니다: {str(e)}") from e
 
 
 # purpose 분리
@@ -895,9 +888,9 @@ def get_latest_completed_question_set(
 def ensure_questions_generated_for_resume(
     db: Session,
     resume_id: int,
-    target_count: int = 50,
+    target_count: int = settings.RESUME_DEFAULT_QUESTION_COUNT,
     purpose: str = "DEFAULT",
-    model: str = DEFAULT_MODEL,
+    model: str = settings.OPENAI_MODEL,
 ) -> QuestionSet:
     latest_set = get_latest_completed_question_set(
         db=db,

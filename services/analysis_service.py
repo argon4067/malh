@@ -230,6 +230,59 @@ def analyze_answer_by_sel_id(
     db.refresh(analysis)
     return analysis
 
+from models.speech_score_summary import SpeechScoreSummary
+
+def get_session_score(db: Session, session_id: int) -> dict:
+    """
+    인터뷰 세션의 종합 점수를 계산합니다.
+    1. 답변 내용 분석 (LLM) 점수 평균
+    2. 발화 분석 (음성) 점수 평균 (유창성, 명료성, 구조, 길이 4종 평균)
+    3. 종합 점수 (두 점수의 평균)
+    """
+    # 1. 답변 내용 분석 (LLM) 점수
+    ans_scores = (
+        db.query(AnswerAnalysis.anal_overall_score)
+        .join(SelectQuestion, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == session_id)
+        .all()
+    )
+    avg_ans = sum(s[0] for s in ans_scores) / len(ans_scores) if ans_scores else 0.0
+
+    # 2. 발화 분석 (음성) 점수
+    speech_rows = (
+        db.query(
+            SpeechScoreSummary.sss_fluency_score,
+            SpeechScoreSummary.sss_clarity_score,
+            SpeechScoreSummary.sss_structure_score,
+            SpeechScoreSummary.sss_length_score
+        )
+        .join(SelectQuestion, SpeechScoreSummary.sel_id == SelectQuestion.sel_id)
+        .filter(SelectQuestion.inter_id == session_id)
+        .all()
+    )
+    
+    if speech_rows:
+        total_speech_q_sum = 0.0
+        for r in speech_rows:
+            # 각 질문의 음성 점수 4종 평균
+            q_speech_avg = (float(r[0]) + float(r[1]) + float(r[2]) + float(r[3])) / 4.0
+            total_speech_q_sum += q_speech_avg
+        avg_speech = total_speech_q_sum / len(speech_rows)
+    else:
+        avg_speech = 0.0
+
+    # 3. 종합 점수 (두 점수 중 하나라도 있으면 평균, 아니면 있는 것 사용)
+    if avg_ans > 0 and avg_speech > 0:
+        overall = (avg_ans + avg_speech) / 2.0
+    else:
+        overall = avg_ans or avg_speech
+    
+    return {
+        "overall": round(overall, 1),
+        "answer": round(avg_ans, 1),
+        "speech": round(avg_speech, 1)
+    }
+
 def _safe_strip(text: str | None) -> str:
     return " ".join((text or "").strip().split())
 

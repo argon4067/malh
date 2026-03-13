@@ -38,18 +38,18 @@ from services.interview_cleanup_service import purge_interview_audio_files
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+DEFAULT_MODEL = settings.OPENAI_MODEL
 
 # 전역 상태 (진행률 및 캐시)
 SUBMIT_ANALYSIS_PROGRESS: dict[int, dict[str, object]] = {}
 SUBMIT_ANALYSIS_LOCK = threading.Lock()
-SUBMIT_ANALYSIS_TIMEOUT_SEC = 180
+SUBMIT_ANALYSIS_TIMEOUT_SEC = settings.ANALYSIS_TIMEOUT_SEC
 
 WEAKNESS_REPORT_PROGRESS: dict[int, dict[str, object]] = {}
 WEAKNESS_REPORT_CACHE: dict[int, dict[str, object]] = {}
 WEAKNESS_REPORT_CACHE_LOCK = threading.Lock()
 WEAKNESS_REPORT_LOCK = threading.Lock()
-WEAKNESS_REPORT_TIMEOUT_SEC = 180
+WEAKNESS_REPORT_TIMEOUT_SEC = settings.WEAKNESS_REPORT_TIMEOUT_SEC
 
 # 이력서 관련 상수
 RUNNING_RESUME_STATUSES = {
@@ -70,36 +70,45 @@ RESUME_PROGRESS_MAP = {
     "FAILED": 100,
 }
 
+from core.exceptions import (
+    UnauthorizedException,
+    ForbiddenException,
+    NotFoundException,
+    ConflictException,
+    BaseAPIException,
+)
+
 # --- 공통 헬퍼 함수들 ---
 
 def _get_login_user(request: Request, db: Session) -> User:
     login_user = request.cookies.get("login_user")
     if not login_user:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+        raise UnauthorizedException(detail="로그인이 필요한 서비스입니다.")
     user = db.query(User).filter(User.user_username == login_user).first()
     if not user:
-        raise HTTPException(status_code=401, detail="유효하지 않은 로그인 정보입니다.")
+        raise UnauthorizedException(detail="유효하지 않은 사용자 정보입니다. 다시 로그인해주세요.")
     return user
 
 def _get_owned_resume(db: Session, user_id: int, resume_id: int) -> Resume:
-    resume = db.query(Resume).filter(Resume.resume_id == resume_id, Resume.user_id == user_id).first()
+    resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
     if not resume:
-        raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
+        raise NotFoundException(detail="요청하신 이력서를 찾을 수 없습니다.")
+    if resume.user_id != user_id:
+        raise ForbiddenException(detail="해당 이력서에 접근할 권한이 없습니다.")
     return resume
 
 def _get_owned_interview_session(db: Session, user_id: int, session_id: int) -> InterviewSession:
-    session = db.query(InterviewSession).filter(
-        InterviewSession.inter_id == session_id,
-        InterviewSession.user_id == user_id,
-    ).first()
+    session = db.query(InterviewSession).filter(InterviewSession.inter_id == session_id).first()
     if not session:
-        raise HTTPException(status_code=404, detail="면접 세션을 찾을 수 없습니다.")
+        raise NotFoundException(detail="요청하신 면접 세션을 찾을 수 없습니다.")
+    if session.user_id != user_id:
+        raise ForbiddenException(detail="해당 면접 세션에 접근할 권한이 없습니다.")
     return session
 
 def _get_interview_session_or_404(db: Session, session_id: int) -> InterviewSession:
     session = db.query(InterviewSession).filter(InterviewSession.inter_id == session_id).first()
     if not session:
-        raise HTTPException(status_code=404, detail="면접 세션을 찾을 수 없습니다.")
+        raise NotFoundException(detail="면접 세션을 찾을 수 없습니다.")
     return session
 
 def _has_session_purpose(session: InterviewSession, purpose: str) -> bool:
@@ -107,7 +116,7 @@ def _has_session_purpose(session: InterviewSession, purpose: str) -> bool:
 
 def _ensure_session_purpose(session: InterviewSession, purpose: str, detail: str) -> None:
     if not _has_session_purpose(session, purpose):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+        raise ConflictException(detail=detail)
 
 def _load_session_question_items(db: Session, session_id: int) -> list[dict[str, Any]]:
     rows = (
@@ -238,15 +247,15 @@ def _ensure_session_analysis_ready(db: Session, inter_id: int) -> None:
         .filter(SelectQuestion.inter_id == inter_id)
         .order_by(SelectQuestion.sel_order_no.asc()).all()
     )
-    if not rows: raise HTTPException(status_code=404, detail="면접 세션 질문을 찾을 수 없습니다.")
+    if not rows: raise NotFoundException(detail="면접 세션 질문을 찾을 수 없습니다.")
     for row in rows:
         if not (row.file_path or "").strip():
-            raise HTTPException(status_code=409, detail=f"Q{row.sel_order_no} 녹음 파일이 없습니다.")
+            raise ConflictException(detail=f"Q{row.sel_order_no} 질문에 대한 답변 녹음 파일이 누락되었습니다.")
         t_text = (row.transcript_text or "").strip()
         if not t_text:
             _, transcript = run_stt_and_update(db=db, inter_id=inter_id, sel_id=int(row.sel_id))
             t_text = (transcript.transcript_text or "").strip()
-        if not t_text: raise HTTPException(status_code=409, detail=f"Q{row.sel_order_no} 전사 텍스트가 비어 있습니다.")
+        if not t_text: raise ConflictException(detail=f"Q{row.sel_order_no} 질문에 대한 전사 텍스트를 생성하지 못했습니다.")
         _build_effective_transcript_for_evaluation(db=db, inter_id=inter_id, sel_id=int(row.sel_id), question_text=row.qust_question_text, transcript_text=t_text)
         score_payload = calculate_speech_scores(transcript_text=t_text, duration_sec=int(row.duration_sec or 0), question_text=row.qust_question_text)
         upsert_speech_summary(db=db, sel_id=int(row.sel_id), score=score_payload)

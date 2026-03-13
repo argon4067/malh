@@ -17,9 +17,24 @@ SessionLocal = sessionmaker(
 )
 
 
+from contextlib import contextmanager
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
+    finally:
+        db.close()
+
+@contextmanager
+def session_scope():
+    """백그라운드 작업 등을 위한 DB 세션 컨텍스트 매니저"""
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

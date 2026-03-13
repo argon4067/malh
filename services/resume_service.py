@@ -14,6 +14,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import date 
 
+from core.exceptions import (
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+    BaseAPIException,
+)
 from models.llm_run import LlmRun
 from models.resume import Resume
 from models.resume_classification import ResumeClassification
@@ -41,12 +47,9 @@ from services.prompt.resume.structure_prompt import (
     STRUCTURE_SYSTEM_PROMPT,
     build_structure_user_prompt,
 )
+from core.config import settings
 
 logger = logging.getLogger(__name__)
-
-load_dotenv()
-
-DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 def update_resume_status(
     db: Session,
@@ -759,7 +762,7 @@ def analyze_saved_resume(
             )
 
             if not classification_result.is_resume:
-                raise HTTPException(status_code=400, detail="이 문서는 이력서가 아닙니다.")
+                raise BadRequestException(detail="업로드하신 문서는 유효한 이력서 형식이 아닌 것으로 판단됩니다.")
 
             classify_run = save_llm_run_success(
                 db=db,
@@ -791,8 +794,10 @@ def analyze_saved_resume(
             )
             db.commit()
 
-            update_resume_status(db, resume, "FAILED", str(e))
-            raise HTTPException(status_code=500, detail=f"이력서 분류 실패: {e}") from e
+            update_resume_status(db, resume, "FAILED", f"이력서 분류 중 오류 발생: {str(e)}")
+            if isinstance(e, BaseAPIException):
+                raise
+            raise BaseAPIException(detail=f"이력서 분류 실패: {str(e)}") from e
 
     if not structure_row:
         try:
@@ -816,7 +821,6 @@ def analyze_saved_resume(
                 structure_result.experiences
             )
 
-            
             if not career_summary:
                 career_summary = normalize_career_summary(structure_result.career_summary)
 
@@ -849,8 +853,10 @@ def analyze_saved_resume(
             )
             db.commit()
 
-            update_resume_status(db, resume, "FAILED", str(e))
-            raise HTTPException(status_code=500, detail=f"이력서 구조화 분석 실패: {e}") from e
+            update_resume_status(db, resume, "FAILED", f"이력서 구조화 분석 중 오류 발생: {str(e)}")
+            if isinstance(e, BaseAPIException):
+                raise
+            raise BaseAPIException(detail=f"이력서 구조화 분석 실패: {str(e)}") from e
 
     if not keyword_exists:
         try:
@@ -862,7 +868,7 @@ def analyze_saved_resume(
                 )
 
             if structure_row is None:
-                raise RuntimeError("키워드 분석 전에 구조화 결과를 찾을 수 없습니다.")
+                raise BaseAPIException(detail="키워드 분석 전에 구조화 결과를 찾을 수 없습니다.")
 
             update_resume_status(db, resume, "KEYWORDS_EXTRACTING")
 
@@ -911,20 +917,21 @@ def analyze_saved_resume(
             )
             db.commit()
 
-            update_resume_status(db, resume, "FAILED", str(e))
-            raise HTTPException(status_code=500, detail=f"이력서 키워드 분석 실패: {e}") from e
+            update_resume_status(db, resume, "FAILED", f"이력서 키워드 추출 중 오류 발생: {str(e)}")
+            if isinstance(e, BaseAPIException):
+                raise
+            raise BaseAPIException(detail=f"이력서 키워드 분석 실패: {str(e)}") from e
         
 def delete_resume(db: Session, resume_id: int) -> None:
-    resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
-    if not resume:
-        raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다.")
+    resume = get_resume_by_id(db, resume_id)
 
     try:
         db.delete(resume)
         db.commit()
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"이력서 삭제 실패: {e}") from e
+        logger.exception("RESUME_DELETE_FAILED resume_id=%s", resume_id)
+        raise BaseAPIException(detail=f"이력서 삭제 중 오류가 발생했습니다: {str(e)}") from e
     
 def build_structured_payload(structured_row: ResumeStructured) -> dict:
     return {

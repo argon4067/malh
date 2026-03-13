@@ -127,6 +127,12 @@ def upsert_transcript(db: Session, sel_id: int, transcript_text: str) -> Transcr
     return transcript
 
 
+from core.exceptions import (
+    BadRequestException,
+    NotFoundException,
+    BaseAPIException,
+)
+
 def run_stt_and_update(
     db: Session,
     inter_id: int,
@@ -138,9 +144,14 @@ def run_stt_and_update(
         .first()
     )
     if recording is None:
-        raise ValueError("선택한 질문의 녹음 파일을 찾을 수 없습니다.")
+        raise NotFoundException(detail="요청하신 질문의 녹음 파일을 찾을 수 없습니다.")
 
     audio_abs_path = Path(settings.STORAGE_DIR) / recording.file_path
+
+    if not audio_abs_path.exists():
+        recording.upload_status = "FAILED"
+        db.commit()
+        raise NotFoundException(detail=f"서버에서 오디오 파일을 찾을 수 없습니다. (경로: {recording.file_path})")
 
     try:
         transcript_text = transcribe_audio_file(audio_abs_path)
@@ -149,7 +160,9 @@ def run_stt_and_update(
         db.commit()
         db.refresh(recording)
         return recording, transcript
-    except Exception:
+    except Exception as e:
         recording.upload_status = "FAILED"
         db.commit()
-        raise
+        if isinstance(e, (BadRequestException, NotFoundException)):
+            raise
+        raise BaseAPIException(detail=f"STT 처리 중 오류가 발생했습니다: {str(e)}") from e

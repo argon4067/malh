@@ -140,7 +140,7 @@ $(function () {
                 return;
             }
 
-            location.href = `/resumes/${result.resume_id}/wait?model=${encodeURIComponent(result.model)}`;
+            location.href = `/resumes/${result.resume_id}/wait`;
         } catch (error) {
             console.error(error);
             alert('업로드 중 오류가 발생했습니다.');

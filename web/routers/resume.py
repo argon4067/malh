@@ -5,63 +5,44 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
-from core.database import get_db, SessionLocal
+from core.database import get_db, SessionLocal, session_scope
 from models.resume import Resume
-from models.user import User
-from models.question_set import QuestionSet
-from models.question import Question
-from models.question_filter_result import QuestionFilterResult
-from models.interview_session import InterviewSession
-from models.select_question import SelectQuestion
-from models.answer_analysis import AnswerAnalysis
 
-from services.resume_service import (
-    DEFAULT_MODEL,
-    analyze_saved_resume,
-    create_resume_record,
-    delete_resume,
-    get_resume_analysis_result,
-    update_resume_status,
-)
-from services.question_service import (
-    ensure_questions_generated_for_resume,
-    generate_questions_for_resume,
-    get_latest_completed_question_set,
-)
-from services.weakness_service import get_session_weakness_top3
-
-from web.common import (
-    templates, logger,
-    RUNNING_RESUME_STATUSES, RESUME_PROGRESS_MAP,
-    _get_login_user, _get_owned_resume,
-    _get_latest_session_id_by_resume
-)
+from core.config import settings
 
 router = APIRouter()
 
 def _run_resume_pipeline_background(resume_id: int, model: str) -> None:
-    db_gen = get_db()
-    db = next(db_gen)
-    try:
-        logger.info("RESUME_PIPELINE_START resume_id=%s model=%s", resume_id, model)
-        analyze_saved_resume(db=db, resume_id=resume_id, model=model)
-        resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
-        if not resume: return
-        update_resume_status(db, resume, "QUESTION_GENERATING")
-        ensure_questions_generated_for_resume(db=db, resume_id=resume_id, target_count=30, purpose="DEFAULT", model=model)
-        resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
-        if resume: update_resume_status(db, resume, "DONE")
-        logger.info("RESUME_PIPELINE_DONE resume_id=%s", resume_id)
-    except Exception as e:
-        db.rollback()
-        logger.exception("RESUME_PIPELINE_FAIL resume_id=%s err=%s", resume_id, e)
-        resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
-        if resume:
-            try: update_resume_status(db, resume, "FAILED", str(e))
-            except Exception: db.rollback()
-    finally:
-        try: db_gen.close()
-        except Exception: pass
+    logger.info("RESUME_PIPELINE_START resume_id=%s model=%s", resume_id, model)
+    with session_scope() as db:
+        try:
+            analyze_saved_resume(db=db, resume_id=resume_id, model=model)
+            resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
+            if not resume: 
+                return
+            
+            update_resume_status(db, resume, "QUESTION_GENERATING")
+            ensure_questions_generated_for_resume(
+                db=db, 
+                resume_id=resume_id, 
+                target_count=settings.RESUME_DEFAULT_QUESTION_COUNT, 
+                purpose="DEFAULT", 
+                model=model
+            )
+            
+            resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
+            if resume: 
+                update_resume_status(db, resume, "DONE")
+            
+            logger.info("RESUME_PIPELINE_DONE resume_id=%s", resume_id)
+        except Exception as e:
+            logger.exception("RESUME_PIPELINE_FAIL resume_id=%s err=%s", resume_id, e)
+            resume = db.query(Resume).filter(Resume.resume_id == resume_id).first()
+            if resume:
+                try: 
+                    update_resume_status(db, resume, "FAILED", str(e))
+                except Exception: 
+                    pass
 
 @router.get("/resumes")
 async def resume_list(request: Request, db: Session = Depends(get_db)):
@@ -106,55 +87,8 @@ async def create_resume(request: Request, model: str = Form(DEFAULT_MODEL), file
     return {"resume_id": resume.resume_id, "model": model}
 
 @router.get("/resumes/{resume_id}/wait")
-async def resume_wait(request: Request, resume_id: int, model: str = DEFAULT_MODEL):
-    return templates.TemplateResponse("resume/wait.html", {"request": request, "resume_id": resume_id, "model": model})
-
-from models.speech_score_summary import SpeechScoreSummary
-
-def _get_session_score(db: Session, session_id: int) -> dict:
-    # 1. 답변 내용 분석 (LLM) 점수
-    ans_scores = (
-        db.query(AnswerAnalysis.anal_overall_score)
-        .join(SelectQuestion, AnswerAnalysis.sel_id == SelectQuestion.sel_id)
-        .filter(SelectQuestion.inter_id == session_id)
-        .all()
-    )
-    avg_ans = sum(s[0] for s in ans_scores) / len(ans_scores) if ans_scores else 0.0
-
-    # 2. 발화 분석 (음성) 점수
-    speech_rows = (
-        db.query(
-            SpeechScoreSummary.sss_fluency_score,
-            SpeechScoreSummary.sss_clarity_score,
-            SpeechScoreSummary.sss_structure_score,
-            SpeechScoreSummary.sss_length_score
-        )
-        .join(SelectQuestion, SpeechScoreSummary.sel_id == SelectQuestion.sel_id)
-        .filter(SelectQuestion.inter_id == session_id)
-        .all()
-    )
-    
-    if speech_rows:
-        total_speech_q_sum = 0.0
-        for r in speech_rows:
-            # 각 질문의 음성 점수 4종 평균
-            q_speech_avg = (float(r[0]) + float(r[1]) + float(r[2]) + float(r[3])) / 4.0
-            total_speech_q_sum += q_speech_avg
-        avg_speech = total_speech_q_sum / len(speech_rows)
-    else:
-        avg_speech = 0.0
-
-    # 3. 종합 점수 (두 점수 중 하나라도 있으면 평균, 아니면 있는 것 사용)
-    if avg_ans > 0 and avg_speech > 0:
-        overall = (avg_ans + avg_speech) / 2.0
-    else:
-        overall = avg_ans or avg_speech
-    
-    return {
-        "overall": round(overall, 1),
-        "answer": round(avg_ans, 1),
-        "speech": round(avg_speech, 1)
-    }
+async def resume_wait(request: Request, resume_id: int):
+    return templates.TemplateResponse("resume/wait.html", {"request": request, "resume_id": resume_id, "model": DEFAULT_MODEL})
 
 @router.get("/resumes/{resume_id}")
 async def resume_detail(request: Request, resume_id: int, db: Session = Depends(get_db)):
@@ -173,7 +107,7 @@ async def resume_detail(request: Request, resume_id: int, db: Session = Depends(
     practice_history = []
     score_history = []
     for s in sessions:
-        score_data = _get_session_score(db, s.inter_id)
+        score_data = get_session_score(db, s.inter_id)
         hist_item = {
             "session_id": s.inter_id,
             "date": s.inter_finished_at.strftime("%Y-%m-%d") if s.inter_finished_at else "-",
@@ -243,7 +177,12 @@ async def generate_questions(request: Request, resume_id: int, db: Session = Dep
     user = _get_login_user(request, db)
     _get_owned_resume(db, user.user_id, resume_id)
     try:
-        question_set = generate_questions_for_resume(db=db, resume_id=resume_id, target_count=30, purpose="DEFAULT")
+        question_set = generate_questions_for_resume(
+            db=db, 
+            resume_id=resume_id, 
+            target_count=settings.RESUME_DEFAULT_QUESTION_COUNT, 
+            purpose="DEFAULT"
+        )
         selected_questions = db.query(Question).filter(Question.set_id == question_set.set_id, Question.qust_is_selected == 1).order_by(Question.qust_id.asc()).all()
         return {"message": "질문 생성이 완료되었습니다.", "set_id": question_set.set_id, "set_status": question_set.set_status, "set_attempt": question_set.set_attempt, "selected_count": len(selected_questions), "questions": [{"qust_id": q.qust_id, "category": q.qust_category, "difficulty": q.qust_difficulty, "question_text": q.qust_question_text, "evidence": q.qust_evidence} for q in selected_questions]}
     except HTTPException: raise
@@ -265,8 +204,12 @@ async def start_practice(request: Request, resume_id: int, db: Session = Depends
     _get_owned_resume(db, user.user_id, resume_id)
     question_set = get_latest_completed_question_set(db, resume_id)
     if not question_set: raise HTTPException(status_code=409, detail="생성된 질문 세트가 없습니다. 먼저 이력서 분석을 완료해주세요.")
-    selected_questions = db.query(Question).filter(Question.set_id == question_set.set_id, Question.qust_is_selected == 1).order_by(func.rand()).limit(5).all()
-    if len(selected_questions) < 5: raise HTTPException(status_code=409, detail="출제 가능한 질문이 5개 미만입니다.")
+    
+    practice_count = settings.INTERVIEW_PRACTICE_QUESTION_COUNT
+    selected_questions = db.query(Question).filter(Question.set_id == question_set.set_id, Question.qust_is_selected == 1).order_by(func.rand()).limit(practice_count).all()
+    
+    if len(selected_questions) < practice_count: 
+        raise HTTPException(status_code=409, detail=f"출제 가능한 질문이 {practice_count}개 미만입니다.")
     try:
         interview_session = InterviewSession(user_id=user.user_id, resume_id=resume_id, set_id=question_set.set_id, inter_status="IN_PROGRESS")
         db.add(interview_session); db.flush()
