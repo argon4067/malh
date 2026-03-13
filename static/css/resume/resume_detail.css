@@ -8,7 +8,7 @@
     width: 100%;
 }
 
-.container { width: 100%; max-width: 800px; }
+.resume-detail-wrapper .container { width: 100%; max-width: 1080px; }
 
 /* [Header Info] */
 .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
@@ -57,7 +57,7 @@
 .item-desc { color: var(--text-sub); font-size: 14px; line-height: 1.6; white-space: pre-line; }
 
 /* Analysis Grid */
-.analysis-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 30px; }
+.analysis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; }
 .history-list { list-style: none; }
 .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #eee; }
 .history-date { color: var(--text-sub); }
