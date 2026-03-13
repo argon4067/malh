@@ -21,6 +21,7 @@ $(function () {
         if (report && coaching) {
             return `${report}\n\n${coaching}`;
         }
+
         return report || coaching || "발화 피드백 결과가 비어 있습니다.";
     }
 
@@ -35,7 +36,7 @@ $(function () {
 
         const data = await response.json().catch(() => null);
         if (!response.ok) {
-            const message = data && data.detail ? data.detail : "발화 피드백 요청에 실패했습니다.";
+            const message = data && data.detail ? data.detail : "발화 피드백 요청이 실패했습니다.";
             throw new Error(message);
         }
 
@@ -71,12 +72,15 @@ $(function () {
                 $output,
             );
             $card.data("speechLoaded", true);
+            $status.prop("disabled", true);
         } catch (error) {
             $status.removeClass("ready").text("오류");
             $output.text(error.message || "발화 피드백 생성에 실패했습니다.");
         } finally {
             setCardLoading($card, false);
-            $status.prop("disabled", false);
+            if (!$card.data("speechLoaded")) {
+                $status.prop("disabled", false);
+            }
             $card.data("speechLoading", false);
         }
     }
@@ -93,15 +97,8 @@ $(function () {
         $(".result-card").each(function () {
             const $card = $(this);
             const $toggle = $card.find("[data-toggle-card]");
-            const $runButton = $card.find("[data-run-speech-feedback]");
-
             $toggle.find("a, button.btn-analysis").on("click", function (e) {
                 e.stopPropagation();
-            });
-
-            $runButton.on("click", function (e) {
-                e.stopPropagation();
-                void runSpeechFeedback($card, true);
             });
 
             setExpanded($card, false);

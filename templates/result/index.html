@@ -93,7 +93,6 @@
                                     </div>
                                 </div>
 
-                                <span class="expand-indicator" aria-hidden="true"></span>
                             </button>
 
                             <div class="head-actions">
@@ -117,17 +116,14 @@
                                 <section class="summary-card">
                                     <div class="card-head">
                                         <h3 class="card-title">발화 피드백</h3>
-                                        <button
-                                            type="button"
-                                            class="status-chip status-action{% if item.speech_ready %} ready{% endif %}"
+                                        <span
+                                            class="status-chip{% if item.speech_ready %} ready{% endif %}"
                                             data-speech-status
-                                            data-run-speech-feedback
                                             data-session-id="{{ session_id }}"
                                             data-sel-id="{{ item.sel_id }}"
-                                            {% if not item.speech_ready %}disabled{% endif %}
                                         >
                                             {% if item.speech_ready %}준비됨{% else %}대기 중{% endif %}
-                                        </button>
+                                        </span>
                                     </div>
 
                                     <p class="card-desc">
@@ -136,7 +132,7 @@
 
                                     <div class="placeholder-box" data-speech-feedback-output>
                                         {% if item.speech_ready %}
-                                        카드를 펼치면 발화 피드백이 자동으로 생성됩니다. 다시 생성하려면 상태 버튼을 누르세요.
+                                        카드를 펼치면 발화 피드백이 자동으로 생성됩니다.
                                         {% else %}
                                         발화 점수 데이터가 아직 없어 실행할 수 없습니다.
                                         {% endif %}
@@ -147,7 +143,7 @@
                                     <div class="card-head">
                                         <h3 class="card-title">컨텍스트 피드백</h3>
                                         <span class="status-chip{% if item.context_ready %} ready{% endif %}">
-                                            {% if item.context_ready %}준비됨{% else %}대기 중{% endif %}
+                                            {% if item.context_ready %}완료{% else %}대기 중{% endif %}
                                         </span>
                                     </div>
 
