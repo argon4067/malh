@@ -83,13 +83,13 @@ def login(
 
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     
-    # max_age=1800 (30분): 사이트를 나가거나 창을 닫아도 30분 뒤에는 쿠키가 자동 삭제됩니다.
+    # max_age=1800: 사이트를 나가거나 창을 닫아도 30분 뒤에는 쿠키가 자동 삭제됩니다.
     response.set_cookie(
         key="login_user", 
         value=user.user_username, 
         path="/", 
         httponly=True,
-        max_age=1800,  # 30분 (초 단위)
+        max_age=3600,
         samesite="lax"
     )
     return response

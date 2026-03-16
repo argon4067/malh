@@ -147,10 +147,10 @@ function renderFeedbackResult(data) {
     if (data.step1_ok === false) {
         showWarning(
             "직무 부적합",
-            data.mismatch_reason || "이력서가 회사의 직무 방향성과 일치하지 않습니다.",
+            data.mismatch_reason || "이력서가 회사의 직무 방향성과 일치하지 않아요.",
         );
         strengthsContent.innerHTML = buildEmptyMessage(
-            "직무 전문 분야가 달라 분석을 진행할 수 없습니다.",
+            "직무 전문 분야가 달라 분석을 진행할 수 없어요.",
         );
         return;
     }
@@ -158,10 +158,10 @@ function renderFeedbackResult(data) {
     if (data.step2_ok === false) {
         showWarning(
             "기술 스택 오류",
-            data.mismatch_reason || "유효한 기술 키워드가 없습니다.",
+            data.mismatch_reason || "유효한 기술 키워드가 없어요.",
         );
         strengthsContent.innerHTML = buildEmptyMessage(
-            "입력한 기술 스택이 해당 직무와 관련이 없습니다.",
+            "입력한 기술 스택이 해당 직무와 관련이 없어요.",
         );
         return;
     }
