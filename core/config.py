@@ -24,8 +24,8 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = Field(default="gpt-4o-mini")
-    OPENAI_TRANSCRIPT_REFINE_MODEL: str | None = None
-    OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC: int = Field(default=12)
+    OPENAI_STT_MODEL: str = Field(default="gpt-4o-mini-transcribe")
+    OPENAI_STT_TIMEOUT_SEC: int = Field(default=60)
 
     # Business Policy Settings
     RESUME_MAX_UPLOAD_SIZE: int = Field(default=10 * 1024 * 1024)  # 10MB
@@ -34,11 +34,6 @@ class Settings(BaseSettings):
     INTERVIEW_PRACTICE_QUESTION_COUNT: int = Field(default=5)
     ANALYSIS_TIMEOUT_SEC: int = Field(default=180)
     WEAKNESS_REPORT_TIMEOUT_SEC: int = Field(default=180)
-
-    FASTER_WHISPER_MODEL_SIZE: str = Field(default="small")
-    FASTER_WHISPER_DEVICE: str = Field(default="cpu")
-    FASTER_WHISPER_COMPUTE_TYPE: str = Field(default="int8")
-    FASTER_WHISPER_BEAM_SIZE: int = Field(default=5)
 
     model_config = SettingsConfigDict(
         env_file=str(PROJECT_ROOT / ".env"),

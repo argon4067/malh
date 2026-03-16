@@ -30,7 +30,6 @@ from services.stt_service import run_stt_and_update
 from services.speech_score_service import calculate_speech_scores
 from services.speech_score_service import upsert_speech_summary, upsert_speech_detail
 from services.analysis_service import analyze_answer_by_sel_id
-from services.transcript_refine_service import refine_transcript_with_guardrails, upsert_refine_result
 from services.storage_cleanup_service import prune_empty_audio_tree, prune_empty_dirs_upward
 from services.interview_cleanup_service import purge_interview_audio_files
 
@@ -226,18 +225,6 @@ def _reset_session_attempt_data(db: Session, inter_id: int) -> dict[str, int]:
     prune_empty_audio_tree(Path(settings.STORAGE_DIR))
     return {"removed_audio": int(removed_audio), "removed_files": int(removed_files)}
 
-def _build_effective_transcript_for_evaluation(db: Session, inter_id: int, sel_id: int, question_text: str | None, transcript_text: str) -> str:
-    raw = (transcript_text or "").strip()
-    if not raw: return ""
-    try:
-        refine_result = refine_transcript_with_guardrails(raw, question_text=question_text or "")
-        upsert_refine_result(db=db, sel_id=sel_id, result=refine_result)
-        if refine_result.status == "APPLIED" and (refine_result.refined_text or "").strip():
-            return str(refine_result.refined_text).strip()
-    except Exception as exc:
-        logger.warning("TRANSCRIPT_REFINE_FAILED inter_id=%s sel_id=%s error=%s", inter_id, sel_id, exc)
-    return raw
-
 def _ensure_session_analysis_ready(db: Session, inter_id: int) -> None:
     rows = (
         db.query(SelectQuestion.sel_id, SelectQuestion.sel_order_no, Question.qust_question_text, AudioRecording.file_path, AudioRecording.duration_sec, Transcript.transcript_text)
@@ -256,7 +243,6 @@ def _ensure_session_analysis_ready(db: Session, inter_id: int) -> None:
             _, transcript = run_stt_and_update(db=db, inter_id=inter_id, sel_id=int(row.sel_id))
             t_text = (transcript.transcript_text or "").strip()
         if not t_text: raise ConflictException(detail=f"Q{row.sel_order_no} 질문에 대한 전사 텍스트를 생성하지 못했습니다.")
-        _build_effective_transcript_for_evaluation(db=db, inter_id=inter_id, sel_id=int(row.sel_id), question_text=row.qust_question_text, transcript_text=t_text)
         score_payload = calculate_speech_scores(transcript_text=t_text, duration_sec=int(row.duration_sec or 0), question_text=row.qust_question_text)
         upsert_speech_summary(db=db, sel_id=int(row.sel_id), score=score_payload)
         upsert_speech_detail(db=db, sel_id=int(row.sel_id), score=score_payload)

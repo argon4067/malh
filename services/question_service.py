@@ -615,7 +615,6 @@ def _load_source_session_answer_items(
             SelectQuestion.sel_order_no.label("sel_order_no"),
             Question.qust_question_text.label("question_text"),
             Transcript.transcript_text.label("transcript_text"),
-            Transcript.refined_text.label("refined_text"),
             AnswerAnalysis.anal_weakness.label("anal_weakness"),
             AnswerAnalysis.anal_improvement_points.label("anal_improvement_points"),
             AnswerAnalysis.anal_overall_comment.label("anal_overall_comment"),
@@ -631,9 +630,7 @@ def _load_source_session_answer_items(
     result = []
     for row in rows:
         answer_text = ""
-        if row.refined_text and str(row.refined_text).strip():
-            answer_text = str(row.refined_text).strip()
-        elif row.transcript_text and str(row.transcript_text).strip():
+        if row.transcript_text and str(row.transcript_text).strip():
             answer_text = str(row.transcript_text).strip()
 
         result.append(

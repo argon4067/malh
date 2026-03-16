@@ -22,7 +22,7 @@ from web.common import (
     _get_login_user, _get_owned_interview_session, _get_interview_session_or_404, _has_session_purpose,
     _ensure_session_purpose, _load_session_question_items, _get_session_recording_counts, _update_weakness_report_progress,
     _get_cached_weakness_report, _set_cached_weakness_report, _invalidate_cached_weakness_report,
-    _purge_session_audio_files, _ensure_session_analysis_ready, _build_effective_transcript_for_evaluation
+    _purge_session_audio_files, _ensure_session_analysis_ready
 )
 
 router = APIRouter()
@@ -56,7 +56,6 @@ def _run_weakness_report_job(inter_id: int) -> None:
                 except Exception as e:
                     failed.append({"sel_id": sel_id, "reason": str(e)}); continue
             try:
-                _build_effective_transcript_for_evaluation(db, inter_id, sel_id, row.qust_question_text, t_text)
                 score_payload = calculate_speech_scores(t_text, int(row.duration_sec or 0), row.qust_question_text)
                 upsert_speech_summary(db, sel_id, score_payload); upsert_speech_detail(db, sel_id, score_payload)
                 analyze_answer_by_sel_id(db, sel_id, model="gpt-4o-mini")

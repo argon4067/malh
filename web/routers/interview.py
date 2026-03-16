@@ -1,6 +1,6 @@
 import time
 import threading
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status, BackgroundTasks
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
@@ -13,8 +13,6 @@ from models.question import Question
 from models.transcript import Transcript
 
 from services.stt_service import (
-    build_recording_paths,
-    resolve_recording_extension,
     save_recording_and_upsert,
     run_stt_and_update,
 )
@@ -31,16 +29,12 @@ from services.speech_feedback_service import (
     start_speech_feedback_stream,
     parse_stream_feedback_markdown,
 )
-from services.transcript_refine_service import (
-    refine_transcript_with_guardrails,
-    upsert_refine_result,
-)
 from services.analysis_service import analyze_answer_by_sel_id
 
 from web.common import (
     templates, logger, SUBMIT_ANALYSIS_LOCK, SUBMIT_ANALYSIS_PROGRESS, SUBMIT_ANALYSIS_TIMEOUT_SEC,
     _get_login_user, _get_resume_id_by_session, _load_session_question_items, _get_session_recording_counts,
-    _update_submit_progress, _reset_session_attempt_data, _build_effective_transcript_for_evaluation,
+    _update_submit_progress, _reset_session_attempt_data,
     _invalidate_cached_weakness_report
 )
 
@@ -85,7 +79,6 @@ def _run_submit_analysis_job(inter_id: int) -> None:
                 failed.append({"sel_id": sel_id, "reason": "텍스트 없음"})
                 continue
             try:
-                _build_effective_transcript_for_evaluation(db=db, inter_id=inter_id, sel_id=sel_id, question_text=row.qust_question_text, transcript_text=t_text)
                 score_payload = calculate_speech_scores(transcript_text=t_text, duration_sec=int(row.duration_sec or 0), question_text=row.qust_question_text)
                 upsert_speech_summary(db=db, sel_id=sel_id, score=score_payload)
                 upsert_speech_detail(db=db, sel_id=sel_id, score=score_payload)
@@ -206,12 +199,3 @@ async def build_speech_feedback_stream(inter_id: int, sel_id: int, force: int = 
         except Exception as e: yield f"오류: {e}"
     return StreamingResponse(stream_generator(), media_type="text/plain; charset=utf-8")
 
-@router.post("/interviews/{inter_id}/questions/{sel_id}/transcript/refine")
-async def refine_transcript(inter_id: int, sel_id: int, db: Session = Depends(get_db)):
-    row = db.query(SelectQuestion.sel_id, Transcript.transcript_text, Question.qust_question_text.label("question_text")).join(Question).outerjoin(Transcript).filter(SelectQuestion.sel_id == sel_id).first()
-    if not row or not (row.transcript_text or "").strip(): raise HTTPException(status_code=400, detail="텍스트 없음")
-    try:
-        res = refine_transcript_with_guardrails(row.transcript_text, question_text=row.question_text)
-        saved = upsert_refine_result(db=db, sel_id=sel_id, result=res); _invalidate_cached_weakness_report(inter_id)
-        return {"status": "APPLIED" if (saved.refined_text or "").strip() else "REJECTED", "refined_text": saved.refined_text}
-    except Exception as e: raise HTTPException(status_code=500, detail=str(e))

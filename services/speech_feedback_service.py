@@ -44,6 +44,8 @@ def _build_messages(question_text: str, score_payload: dict[str, Any]) -> tuple[
         "Never evaluate content relevance, technical correctness, or answer context. "
         "Do not mention specific technologies, concepts, or domain advice. "
         "Do not fabricate transcript quotes. "
+        "Write all feedback in Korean using 해요체 only. "
+        "Do not use 합니다체, 입니다체, or casual/plain speech. "
         "Output strict JSON only."
     )
     user_msg = (
@@ -51,7 +53,9 @@ def _build_messages(question_text: str, score_payload: dict[str, Any]) -> tuple[
         "반드시 발화 성능(속도, 침묵, 반복, 명료성, 길이, 안정성)만 평가하세요.\n"
         "내용 적합성, 기술 정확성, 답변 맥락, 특정 기술/개념 언급은 금지합니다.\n"
         "1) 분석 리포트: 발화 강점/약점/원인 요약 (3~5개 bullet)\n"
-        "2) 코칭 피드백: 다음 답변에서 바로 적용할 발화 훈련 지침 (3~5개 bullet)\n\n"
+        "2) 코칭 피드백: 다음 답변에서 바로 적용할 발화 훈련 지침 (3~5개 bullet)\n"
+        "3) 모든 bullet은 한국어 해요체로만 작성하세요. 문장 끝은 '~해요', '~세요'처럼 쓰고, "
+        "'~합니다', '~입니다', 반말은 쓰지 마세요.\n\n"
         f"지표: {json.dumps(compact_score, ensure_ascii=False)}\n\n"
         "JSON schema:\n"
         "{"
@@ -79,6 +83,8 @@ def _build_stream_messages(question_text: str, score_payload: dict[str, Any]) ->
         "Never evaluate content relevance, technical correctness, or answer context. "
         "Do not mention specific technologies, concepts, or domain advice. "
         "Do not fabricate transcript quotes. "
+        "Write all feedback in Korean using 해요체 only. "
+        "Do not use 합니다체, 입니다체, or casual/plain speech. "
         "Output Korean markdown only."
     )
     user_msg = (
@@ -86,7 +92,9 @@ def _build_stream_messages(question_text: str, score_payload: dict[str, Any]) ->
         "반드시 발화 성능(속도, 침묵, 반복, 명료성, 길이, 안정성)만 평가하세요.\n"
         "내용 적합성, 기술 정확성, 답변 맥락, 특정 기술/개념 언급은 금지합니다.\n"
         "출력은 헤더 없이 bullet 4~8개로만 작성하세요.\n"
-        "예: - 발화 속도는 ...\n\n"
+        "모든 bullet은 한국어 해요체로만 작성하세요. 문장 끝은 '~해요', '~세요'처럼 쓰고, "
+        "'~합니다', '~입니다', 반말은 쓰지 마세요.\n"
+        "예: - 발화 속도는 안정적으로 유지돼요.\n\n"
         f"지표: {json.dumps(compact_score, ensure_ascii=False)}"
     )
     return system_msg, user_msg

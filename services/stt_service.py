@@ -81,35 +81,37 @@ def save_recording_and_upsert(
 
 
 @lru_cache
-def _get_whisper_model():
+def _get_openai_client():
+    api_key = settings.OPENAI_API_KEY or ""
+    if not api_key.strip():
+        raise RuntimeError("OPENAI_API_KEY is not configured.")
     try:
-        from faster_whisper import WhisperModel  # type: ignore
+        from openai import OpenAI  # type: ignore
     except ImportError as exc:
         raise RuntimeError(
-            "faster-whisper package is not installed. Add it to requirements."
+            "openai package is not installed. Add it to requirements."
         ) from exc
 
-    return WhisperModel(
-        settings.FASTER_WHISPER_MODEL_SIZE,
-        device=settings.FASTER_WHISPER_DEVICE,
-        compute_type=settings.FASTER_WHISPER_COMPUTE_TYPE,
-    )
+    return OpenAI(api_key=api_key)
 
 
 def transcribe_audio_file(audio_path: Path) -> str:
     if not audio_path.exists():
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-    model = _get_whisper_model()
-    segments, _ = model.transcribe(
-        str(audio_path),
-        language="ko",
-        beam_size=settings.FASTER_WHISPER_BEAM_SIZE,
-        vad_filter=True,
-    )
-    transcript_text = " ".join(
-        segment.text.strip() for segment in segments if segment.text and segment.text.strip()
-    ).strip()
+    client = _get_openai_client()
+    with audio_path.open("rb") as audio_file:
+        transcription = client.audio.transcriptions.create(
+            file=audio_file,
+            model=settings.OPENAI_STT_MODEL,
+            language="ko",
+            timeout=settings.OPENAI_STT_TIMEOUT_SEC,
+        )
+
+    if isinstance(transcription, str):
+        transcript_text = transcription.strip()
+    else:
+        transcript_text = str(getattr(transcription, "text", "") or "").strip()
     if not transcript_text:
         raise RuntimeError("STT 처리는 완료됐지만 전사 텍스트가 비어 있습니다.")
     return transcript_text

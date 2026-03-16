@@ -79,13 +79,13 @@ async def result_analysis_stt(session_id: int, sel_id: int):
 
 @router.get("/interviews/{session_id}/results/{sel_id}/text")
 async def result_transcript(request: Request, session_id: int, sel_id: int, db: Session = Depends(get_db)):
-    row = db.query(SelectQuestion.sel_order_no, Question.qust_question_text, AudioRecording.duration_sec, AudioRecording.file_path, Transcript.transcript_text, Transcript.refined_text, AnswerAnalysis).join(Question).outerjoin(AudioRecording).outerjoin(Transcript).outerjoin(AnswerAnalysis).filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id).first()
+    row = db.query(SelectQuestion.sel_order_no, Question.qust_question_text, AudioRecording.duration_sec, AudioRecording.file_path, Transcript.transcript_text, AnswerAnalysis).join(Question).outerjoin(AudioRecording).outerjoin(Transcript).outerjoin(AnswerAnalysis).filter(SelectQuestion.inter_id == session_id, SelectQuestion.sel_id == sel_id).first()
     if not row: raise HTTPException(status_code=404, detail="Not found")
     t_text = (row.transcript_text or "").strip()
     if not t_text and (row.file_path or "").strip():
         try: _, transcript = run_stt_and_update(db, session_id, sel_id); t_text = transcript.transcript_text
         except: pass
-    effective_text = row.refined_text or t_text or "전사 텍스트가 없습니다."
+    effective_text = t_text or "전사 텍스트가 없습니다."
     return templates.TemplateResponse("result/transcript.html", {
         "request": request, "session_id": session_id, "sel_id": sel_id,
         "transcript_item": {

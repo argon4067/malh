@@ -62,9 +62,6 @@ def _pick_answer_text(select_question: SelectQuestion) -> str:
     if not transcript:
         raise ValueError("Transcript가 없습니다.")
 
-    if transcript.refined_text and transcript.refined_text.strip():
-        return transcript.refined_text.strip()
-
     if transcript.transcript_text and transcript.transcript_text.strip():
         return transcript.transcript_text.strip()
 
@@ -372,9 +369,7 @@ def _answer_summary(transcript: Transcript | None) -> str:
         return "답변 텍스트가 없습니다."
 
     text = ""
-    if transcript.refined_text and transcript.refined_text.strip():
-        text = transcript.refined_text.strip()
-    elif transcript.transcript_text and transcript.transcript_text.strip():
+    if transcript.transcript_text and transcript.transcript_text.strip():
         text = transcript.transcript_text.strip()
 
     if not text:

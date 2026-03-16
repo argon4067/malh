@@ -26,6 +26,4 @@ class Transcript(Base):
         comment="STT 엔진이 음성 답변을 텍스트로 변환한 전체 전사 원문 데이터",
     )
 
-    refined_text = Column(Text, nullable=True)
-
     select_question = relationship("SelectQuestion", back_populates="transcript")

@@ -12,8 +12,6 @@ python-docx
 pymupdf
 openai
 passlib
-faster-whisper
 cryptography
 beautifulsoup4
 requests
-ffmpeg
