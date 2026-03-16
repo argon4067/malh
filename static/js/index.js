@@ -3,7 +3,6 @@
  */
 
 $(document).ready(function() {
-    console.log("말해뭐해 서비스 메인 페이지가 로드되었습니다.");
 
     // [동작 예시] 스크롤 시 헤더 그림자 강화 효과
     const $header = $('header');

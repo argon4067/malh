@@ -26,7 +26,3 @@ function completeReinforcement() {
     $(location).attr("href", `/interviews/${sessionId}/weakness/report-loading`);
     
 }
-
-$(function () {
-    console.log("weakness list loaded");
-});

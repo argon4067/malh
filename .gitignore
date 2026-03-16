@@ -74,6 +74,7 @@ Thumbs.db
 *.db
 *.log
 temp/
+.env.docker
 
 # 가상환경
 .venv

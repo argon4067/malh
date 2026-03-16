@@ -5,16 +5,20 @@ services:
     image: mysql:8.0
     container_name: malh-db
     restart: unless-stopped
+    env_file:
+      - .env.docker
     environment:
-      MYSQL_DATABASE: malh
-      MYSQL_USER: malh_user
-      MYSQL_PASSWORD: malh_pass
-      MYSQL_ROOT_PASSWORD: root_pass
-      TZ: Asia/Seoul
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "3307:3306"
     volumes:
       - malh_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -proot_pass || exit 1"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -29,15 +33,28 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - .env
+      - .env.docker
     environment:
-      DATABASE_URL: mysql+pymysql://malh_user:malh_pass@db:3306/malh?charset=utf8mb4
-      TZ: Asia/Seoul
+      DATABASE_URL: ${DATABASE_URL}
+      STORAGE_DIR: ${STORAGE_DIR}
+      ENV: ${ENV}
+      TZ: ${TZ}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL}
+      OPENAI_TRANSCRIPT_REFINE_MODEL: ${OPENAI_TRANSCRIPT_REFINE_MODEL}
+      OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC: ${OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC}
+      INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC: ${INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC}
+      INTERVIEW_AUDIO_STALE_TTL_SEC: ${INTERVIEW_AUDIO_STALE_TTL_SEC}
+      FASTER_WHISPER_MODEL_SIZE: ${FASTER_WHISPER_MODEL_SIZE}
+      FASTER_WHISPER_DEVICE: ${FASTER_WHISPER_DEVICE}
+      FASTER_WHISPER_COMPUTE_TYPE: ${FASTER_WHISPER_COMPUTE_TYPE}
+      FASTER_WHISPER_BEAM_SIZE: ${FASTER_WHISPER_BEAM_SIZE}
     expose:
-      - "8000"
+      - "8000:8000"
     volumes:
       - ./storage:/app/storage
-      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers
 
   caddy:
     image: caddy:2
@@ -46,9 +63,9 @@ services:
     depends_on:
       - app
     ports:
-      - "18080:80/tcp"
-      - "18443:443/tcp"
-      - "18443:443/udp"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

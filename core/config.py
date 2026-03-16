@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         description="mysql+pymysql://user:password@host:3306/dbname?charset=utf8mb4",
     )
 
-    STORAGE_DIR: str = Field(default=str(PROJECT_ROOT / "storage"))
+    STORAGE_DIR: Path = Field(default=PROJECT_ROOT / "storage")
     INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC: int = Field(default=1800)
     INTERVIEW_AUDIO_STALE_TTL_SEC: int = Field(default=86400)
 

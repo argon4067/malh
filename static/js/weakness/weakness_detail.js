@@ -358,5 +358,4 @@ function finishRecording() {
 
 $(function () {
     updatePreviewStatusUI();
-    console.log("weakness detail loaded");
 });

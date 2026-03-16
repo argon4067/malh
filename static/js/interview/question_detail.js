@@ -363,5 +363,4 @@ function finishRecording() {
 
 $(function () {
     updatePreviewStatusUI();
-    console.log("question_detail loaded");
 });

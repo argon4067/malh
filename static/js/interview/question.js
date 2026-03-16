@@ -59,5 +59,4 @@ function submitAnswers() {
 }
 
 $(function () {
-    console.log("question list loaded");
 });

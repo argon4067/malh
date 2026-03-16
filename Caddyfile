@@ -1,4 +1,4 @@
-malh.local {
-    tls internal
+malh.site {
+    encode gzip
     reverse_proxy app:8000
 }

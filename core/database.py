@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -8,6 +10,7 @@ from core.config import settings
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
+    pool_recycle=3600,
 )
 
 SessionLocal = sessionmaker(
@@ -15,9 +18,6 @@ SessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False,
 )
-
-
-from contextlib import contextmanager
 
 def get_db():
     db = SessionLocal()
@@ -28,7 +28,6 @@ def get_db():
 
 @contextmanager
 def session_scope():
-    """백그라운드 작업 등을 위한 DB 세션 컨텍스트 매니저"""
     db = SessionLocal()
     try:
         yield db
