@@ -11,6 +11,8 @@
 <body>
   {% set current_path = request.url.path %}
   {% set login_user = request.cookies.get("login_user") %}
+  {% set resume_href = "/resumes" if login_user else "/auth/login" %}
+  {% set feedback_href = "/feedback" if login_user else "/auth/login" %}
   <header>
     <div class="logo-container" onclick="location.href='/'">
         <img src="/static/img/malh_logo.png" alt="말해뭐해" class="logo-img">
@@ -20,10 +22,8 @@
             <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
             <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
             <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
-            {% if login_user %}
-                <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
-                <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
-            {% endif %}
+            <li><a href="{{ resume_href }}" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+            <li><a href="{{ feedback_href }}" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
         </ul>
     </nav>
     <div class="auth-links">
@@ -50,10 +50,8 @@
                 <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
                 <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
                 <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
-                {% if login_user %}
-                    <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
-                    <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
-                {% endif %}
+                <li><a href="{{ resume_href }}" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+                <li><a href="{{ feedback_href }}" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
             </ul>
         </nav>
     </div>
