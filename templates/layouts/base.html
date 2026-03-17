@@ -19,11 +19,19 @@
     </div>
     <nav>
         <ul>
+        {% if request.cookies.get("login_user") %}
             <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
             <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
             <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
-            <li><a href="{{ resume_href }}" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
-            <li><a href="{{ feedback_href }}" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+            <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+            <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+        {% else %}
+            <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
+            <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
+            <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+            <li><a href="/auth/login" class="{% if current_path.startswith('/resumes') %}active{% endif %}" onclick="alert('로그인이 필요한 서비스입니다.');">이력서 관리</a></li>
+            <li><a href="/auth/login" class="{% if current_path == '/feedback' %}active{% endif %}" onclick="alert('로그인이 필요한 서비스입니다.');">이력서 피드백</a></li>
+        {% endif %}
         </ul>
     </nav>
     <div class="auth-links">
@@ -47,11 +55,19 @@
     <div class="mobile-menu" id="mobileMenu">
         <nav class="mobile-nav">
             <ul>
+            {% if request.cookies.get("login_user") %}
                 <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
                 <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
                 <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
-                <li><a href="{{ resume_href }}" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
-                <li><a href="{{ feedback_href }}" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+                <li><a href="/resumes" class="{% if current_path.startswith('/resumes') %}active{% endif %}">이력서 관리</a></li>
+                <li><a href="/feedback" class="{% if current_path == '/feedback' %}active{% endif %}">이력서 피드백</a></li>
+            {% else %}
+                <li><a href="/" class="{% if current_path == '/' %}active{% endif %}">메인</a></li>
+                <li><a href="/service-intro" class="{% if current_path == '/service-intro' %}active{% endif %}">서비스 소개</a></li>
+                <li><a href="/how-to-use" class="{% if current_path == '/how-to-use' %}active{% endif %}">이용 방법</a></li>
+                <li><a href="/auth/login" class="{% if current_path.startswith('/resumes') %}active{% endif %}" onclick="alert('로그인이 필요한 서비스입니다.');">이력서 관리</a></li>
+                <li><a href="/auth/login" class="{% if current_path == '/feedback' %}active{% endif %}" onclick="alert('로그인이 필요한 서비스입니다.');">이력서 피드백</a></li>
+            {% endif %}
             </ul>
         </nav>
     </div>
