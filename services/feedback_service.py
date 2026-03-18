@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import hashlib
+import time  # ✅ 추가
 from typing import Optional, List
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -32,8 +33,11 @@ templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
+
 feedback_cache = {}
 company_cache = {}
+
+CACHE_TTL = 60 * 10
 
 
 def get_client() -> OpenAI:
@@ -43,7 +47,6 @@ def get_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-# ✅ 추가: 텍스트 normalize (핵심)
 def normalize_text(text: str) -> str:
     return " ".join(text.split())
 
@@ -68,7 +71,6 @@ def crawl_company_url(url: str) -> str:
             if line.strip()
         )
 
-        # ✅ 추가: normalize 적용
         return normalize_text(raw_text)
 
     except Exception as e:
@@ -90,11 +92,15 @@ def extract_company_info_llm(crawled_text: str, company_url: str, model: str = D
             "ideal_candidates": []
         })
 
-    # ✅ 수정: URL 기반 캐시 키 (안정성 ↑)
     cache_key = make_cache_key(company_url)
 
     if cache_key in company_cache:
-        return company_cache[cache_key]
+        cached_result, cached_time = company_cache[cache_key]
+
+        if time.time() - cached_time < CACHE_TTL:
+            return cached_result
+        else:
+            del company_cache[cache_key]
 
     client = get_client()
 
@@ -111,7 +117,9 @@ def extract_company_info_llm(crawled_text: str, company_url: str, model: str = D
         )
 
         result = response.choices[0].message.content
-        company_cache[cache_key] = result
+
+        # ✅ 캐시 저장 (시간 포함)
+        company_cache[cache_key] = (result, time.time())
 
         return result
 
@@ -137,7 +145,12 @@ def generate_feedback_llm(
     )
 
     if cache_key in feedback_cache:
-        return feedback_cache[cache_key]
+        cached_result, cached_time = feedback_cache[cache_key]
+
+        if time.time() - cached_time < CACHE_TTL:
+            return cached_result
+        else:
+            del feedback_cache[cache_key]
 
     client = get_client()
 
@@ -161,7 +174,9 @@ def generate_feedback_llm(
         )
 
         result = json.loads(response.choices[0].message.content)
-        feedback_cache[cache_key] = result
+
+        # ✅ 캐시 저장 (시간 포함)
+        feedback_cache[cache_key] = (result, time.time())
 
         return result
 
@@ -194,7 +209,6 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
 
     crawled_text = crawl_company_url(company_url)
 
-    # ✅ 수정: company_url 전달
     company_info_json = extract_company_info_llm(crawled_text, company_url)
 
     return generate_feedback_llm(
@@ -203,10 +217,6 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
         required_stack
     )
 
-
-# -----------------------------------------------------
-# 라우터 엔드포인트 (변경 없음)
-# -----------------------------------------------------
 
 @router.get("/feedback")
 async def feedback_page(request: Request, db: Session = Depends(get_db)):
