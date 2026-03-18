@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-import hashlib  # ✅ 추가
+import hashlib
 from typing import Optional, List
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# 프로젝트 설정 및 모델 임포트
 from core.database import get_db
 from models.resume import Resume
 from models.resume_keyword import ResumeKeyword
@@ -33,7 +32,6 @@ templates = Jinja2Templates(directory="templates")
 router = APIRouter()
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-# ✅ 추가: 캐시 저장소
 feedback_cache = {}
 company_cache = {}
 
@@ -45,9 +43,10 @@ def get_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
-# -----------------------------------------------------
-# 내부 로직 함수
-# -----------------------------------------------------
+# ✅ 추가: 텍스트 normalize (핵심)
+def normalize_text(text: str) -> str:
+    return " ".join(text.split())
+
 
 def crawl_company_url(url: str) -> str:
     try:
@@ -63,24 +62,26 @@ def crawl_company_url(url: str) -> str:
         for s in soup(["script", "style"]):
             s.decompose()
 
-        return "\n".join(
+        raw_text = "\n".join(
             line.strip()
             for line in soup.get_text().splitlines()
             if line.strip()
         )
+
+        # ✅ 추가: normalize 적용
+        return normalize_text(raw_text)
 
     except Exception as e:
         logger.error(f"Crawl Error: {e}")
         return ""
 
 
-# ✅ 추가: 캐시 키 생성 함수
 def make_cache_key(*args) -> str:
     raw = "".join(args)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> str:
+def extract_company_info_llm(crawled_text: str, company_url: str, model: str = DEFAULT_MODEL) -> str:
 
     if not crawled_text or not crawled_text.strip():
         return json.dumps({
@@ -89,10 +90,9 @@ def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> s
             "ideal_candidates": []
         })
 
-    # ✅ 캐시 키
-    cache_key = make_cache_key(crawled_text)
+    # ✅ 수정: URL 기반 캐시 키 (안정성 ↑)
+    cache_key = make_cache_key(company_url)
 
-    # ✅ 캐시 히트
     if cache_key in company_cache:
         return company_cache[cache_key]
 
@@ -106,15 +106,11 @@ def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> s
                 {"role": "user", "content": build_extract_company_user_prompt(crawled_text)},
             ],
             response_format={"type": "json_object"},
-
-            # ✅ 추가 (결정성)
             temperature=0,
             top_p=0,
         )
 
         result = response.choices[0].message.content
-
-        # ✅ 캐시 저장
         company_cache[cache_key] = result
 
         return result
@@ -134,14 +130,12 @@ def generate_feedback_llm(
         model: str = DEFAULT_MODEL
 ) -> dict:
 
-    # ✅ 캐시 키
     cache_key = make_cache_key(
         resume_keywords_json,
         company_info_json,
         required_stack
     )
 
-    # ✅ 캐시 히트
     if cache_key in feedback_cache:
         return feedback_cache[cache_key]
 
@@ -162,15 +156,11 @@ def generate_feedback_llm(
                 },
             ],
             response_format={"type": "json_object"},
-
-            # ✅ 추가 (결정성)
             temperature=0,
             top_p=0,
         )
 
         result = json.loads(response.choices[0].message.content)
-
-        # ✅ 캐시 저장
         feedback_cache[cache_key] = result
 
         return result
@@ -204,7 +194,8 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
 
     crawled_text = crawl_company_url(company_url)
 
-    company_info_json = extract_company_info_llm(crawled_text)
+    # ✅ 수정: company_url 전달
+    company_info_json = extract_company_info_llm(crawled_text, company_url)
 
     return generate_feedback_llm(
         resume_keywords_json,
@@ -214,7 +205,7 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
 
 
 # -----------------------------------------------------
-# 라우터 엔드포인트
+# 라우터 엔드포인트 (변경 없음)
 # -----------------------------------------------------
 
 @router.get("/feedback")
