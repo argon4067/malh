@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import hashlib  # ✅ 추가
 from typing import Optional, List
 
 from fastapi import APIRouter, Request, Depends, HTTPException
@@ -13,7 +14,7 @@ from openai import OpenAI
 from core.database import get_db
 from models.resume import Resume
 from models.resume_keyword import ResumeKeyword
-from models.user import User   # ✅ 추가
+from models.user import User
 
 from services.prompt.feedback.extract_company_prompt import (
     EXTRACT_COMPANY_SYSTEM_PROMPT,
@@ -31,6 +32,10 @@ templates = Jinja2Templates(directory="templates")
 
 router = APIRouter()
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+# ✅ 추가: 캐시 저장소
+feedback_cache = {}
+company_cache = {}
 
 
 def get_client() -> OpenAI:
@@ -69,6 +74,12 @@ def crawl_company_url(url: str) -> str:
         return ""
 
 
+# ✅ 추가: 캐시 키 생성 함수
+def make_cache_key(*args) -> str:
+    raw = "".join(args)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> str:
 
     if not crawled_text or not crawled_text.strip():
@@ -77,6 +88,13 @@ def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> s
             "core_values": [],
             "ideal_candidates": []
         })
+
+    # ✅ 캐시 키
+    cache_key = make_cache_key(crawled_text)
+
+    # ✅ 캐시 히트
+    if cache_key in company_cache:
+        return company_cache[cache_key]
 
     client = get_client()
 
@@ -87,10 +105,19 @@ def extract_company_info_llm(crawled_text: str, model: str = DEFAULT_MODEL) -> s
                 {"role": "system", "content": EXTRACT_COMPANY_SYSTEM_PROMPT},
                 {"role": "user", "content": build_extract_company_user_prompt(crawled_text)},
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+
+            # ✅ 추가 (결정성)
+            temperature=0,
+            top_p=0,
         )
 
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+
+        # ✅ 캐시 저장
+        company_cache[cache_key] = result
+
+        return result
 
     except Exception:
         return json.dumps({
@@ -106,6 +133,17 @@ def generate_feedback_llm(
         required_stack: str,
         model: str = DEFAULT_MODEL
 ) -> dict:
+
+    # ✅ 캐시 키
+    cache_key = make_cache_key(
+        resume_keywords_json,
+        company_info_json,
+        required_stack
+    )
+
+    # ✅ 캐시 히트
+    if cache_key in feedback_cache:
+        return feedback_cache[cache_key]
 
     client = get_client()
 
@@ -123,10 +161,19 @@ def generate_feedback_llm(
                     ),
                 },
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+
+            # ✅ 추가 (결정성)
+            temperature=0,
+            top_p=0,
         )
 
-        return json.loads(response.choices[0].message.content)
+        result = json.loads(response.choices[0].message.content)
+
+        # ✅ 캐시 저장
+        feedback_cache[cache_key] = result
+
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"분석 실패: {e}")
@@ -174,13 +221,11 @@ def get_resume_feedback(db: Session, resume_id: int, company_url: str, required_
 async def feedback_page(request: Request, db: Session = Depends(get_db)):
     try:
 
-        # ✅ 로그인 사용자 가져오기
         login_user = request.cookies.get("login_user")
 
         if not login_user:
             raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
-        # ✅ username으로 user 조회
         user = db.query(User).filter(
             User.user_username == login_user
         ).first()
@@ -188,12 +233,10 @@ async def feedback_page(request: Request, db: Session = Depends(get_db)):
         if not user:
             raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
-        # ✅ 해당 user의 이력서만 조회
         resumes = db.query(Resume).filter(
             Resume.user_id == user.user_id
         ).all()
 
-        # 기존 코드 유지
         has_resumes = len(resumes) > 0
 
         return templates.TemplateResponse(
