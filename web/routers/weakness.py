@@ -3,10 +3,11 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from core.database import SessionLocal, get_db
 from models.audio_recording import AudioRecording
+from models.interview_session import InterviewSession
 from models.question import Question
 from models.select_question import SelectQuestion
 from models.transcript import Transcript
@@ -199,12 +200,29 @@ async def weakness_questions(request: Request, session_id: int, db: Session = De
 
 @router.get("/interviews/{session_id}/weakness/wait")
 async def weakness_wait(request: Request, session_id: int, db: Session = Depends(get_db)):
-    session = _get_interview_session_or_404(db, session_id)
+    # 1. 현재 세션이 이미 WEAKNESS 세션인 경우 (직접 접근 등)
+    session = (
+        db.query(InterviewSession)
+        .options(joinedload(InterviewSession.question_set), joinedload(InterviewSession.reinforcement_session))
+        .filter(InterviewSession.inter_id == session_id)
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+
     if _has_session_purpose(session, "WEAKNESS"):
         return RedirectResponse(
             url=f"/interviews/{session_id}/weakness",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
+
+    # 2. 원본(DEFAULT) 세션에서 접근한 경우, 이미 생성된 보강 세션이 있는지 확인
+    if session.reinforcement_session:
+        return RedirectResponse(
+            url=f"/interviews/{session.reinforcement_session.inter_id}/weakness",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
+
     return templates.TemplateResponse(
         "weakness/wait.html",
         {"request": request, "session_id": session_id},

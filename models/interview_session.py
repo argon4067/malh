@@ -26,6 +26,7 @@ class InterviewSession(Base):
         Integer,
         ForeignKey("interview_session.inter_id", ondelete="SET NULL"),
         nullable=True,
+        unique=True,
         comment="WEAKNESS 세션이 어떤 원본 면접 세션에서 생성되었는지",
     )
 
@@ -47,12 +48,13 @@ class InterviewSession(Base):
         "InterviewSession",
         remote_side=[inter_id],
         foreign_keys=[source_inter_id],
-        back_populates="reinforcement_sessions",
+        back_populates="reinforcement_session",
     )
-    reinforcement_sessions = relationship(
+    reinforcement_session = relationship(
         "InterviewSession",
         foreign_keys=[source_inter_id],
         back_populates="source_session",
+        uselist=False,
     )
 
     

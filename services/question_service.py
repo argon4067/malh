@@ -4,7 +4,7 @@ import re
 from typing import Any, List, Optional
 
 from openai import OpenAI
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from models.answer_analysis import AnswerAnalysis
 from models.interview_session import InterviewSession
@@ -740,11 +740,22 @@ def generate_weakness_questions_for_session(
 ) -> dict[str, Any]:
     source_session = (
         db.query(InterviewSession)
+        .options(joinedload(InterviewSession.reinforcement_session))
         .filter(InterviewSession.inter_id == source_session_id)
         .first()
     )
     if not source_session:
         raise NotFoundException(detail="원본 면접 세션을 찾을 수 없습니다.")
+
+    # 이미 보강 세션이 존재하는 경우 기존 정보 반환
+    if source_session.reinforcement_session:
+        return {
+            "source_session_id": source_session_id,
+            "weakness_session_id": source_session.reinforcement_session.inter_id,
+            "question_set_id": source_session.reinforcement_session.set_id,
+            "question_count": settings.INTERVIEW_PRACTICE_QUESTION_COUNT,
+            "already_exists": True
+        }
 
     if source_session.inter_status != "DONE":
         raise ConflictException(detail="기존 면접 분석이 완료된 후에만 약점 보완 연습이 가능합니다.")
