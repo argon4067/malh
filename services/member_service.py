@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from starlette import status
 from pydantic import BaseModel
 
-# SQLAlchemy 세션 및 모델 임포트
+
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models.user import User
@@ -29,9 +29,8 @@ class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
 
-# =====================================================
-# 회원가입 관련 로직 (기존과 동일)
-# =====================================================
+
+# 회원가입
 @router.get("/auth/signup")
 def signup_page(request: Request):
     return templates.TemplateResponse("auth/signup.html", {"request": request})
@@ -61,9 +60,8 @@ def signup(
     db.commit()
     return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-# =====================================================
-# 로그인 처리 (수정됨: 쿠키 만료 시간 설정)
-# =====================================================
+
+# 로그인
 @router.get("/auth/login")
 def login_page(request: Request):
     return templates.TemplateResponse("auth/login.html", {"request": request})
@@ -83,7 +81,7 @@ def login(
 
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     
-    # max_age=1800: 사이트를 나가거나 창을 닫아도 30분 뒤에는 쿠키가 자동 삭제됩니다.
+
     response.set_cookie(
         key="login_user", 
         value=user.user_username, 
@@ -94,22 +92,15 @@ def login(
     )
     return response
 
-# =====================================================
-# 로그아웃 및 기타 API (기존과 동일)
-# =====================================================
+
+# 로그아웃
 @router.get("/auth/logout")
 def logout():
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="login_user", path="/")
     return response
 
-@router.get("/auth/check-id")
-def check_id(userId: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.user_username == userId).first()
-    if user:
-        return {"exists": True, "invalid_format": False, "is_withdrawn": (user.user_status == 0)}
-    return {"exists": False, "invalid_format": False, "is_withdrawn": False}
-
+# 비밀번호 변경 및 회원 탈퇴
 @router.post("/auth/change-password")
 def change_password(
     request: Request,
@@ -141,37 +132,24 @@ def change_password(
     response.delete_cookie(key="login_user", path="/")
     return response
 
-# =====================================================
-# 회원 탈퇴 API (POST)
-# =====================================================
 @router.post("/auth/withdraw")
 def withdraw_user(
     request: Request,
     db: Session = Depends(get_db)
 ):
     user_id = request.cookies.get("login_user")
-    if not user_id:
-        return JSONResponse(status_code=401, content={"detail": "로그인이 필요합니다."})
-        
     user = db.query(User).filter(User.user_username == user_id).first()
-    if not user:
-        return JSONResponse(status_code=404, content={"detail": "사용자를 찾을 수 없습니다."})
         
     user.user_status = 0
     db.commit()
     
-    response = JSONResponse(content={"message": "회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다."})
+    response = JSONResponse(content={"message": "회원 탈퇴가 완료되었습니다."})
     response.delete_cookie(key="login_user", path="/")
     return response
 
-# =====================================================
-# 피드백 페이지 (GET)
-# =====================================================
+
 @router.get("/resume/feedback")
 def feedback_page(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("login_user")
-    if not user_id:
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-        
+
     resumes = [] 
     return templates.TemplateResponse("feedback.html", {"request": request, "resumes": resumes})
