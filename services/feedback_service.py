@@ -224,9 +224,6 @@ async def feedback_page(request: Request, db: Session = Depends(get_db)):
 
         login_user = request.cookies.get("login_user")
 
-        if not login_user:
-            raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-
         user = db.query(User).filter(
             User.user_username == login_user
         ).first()

@@ -83,6 +83,7 @@ from core.exceptions import (
 
 def _get_login_user(request: Request, db: Session) -> User:
     login_user = request.cookies.get("login_user")
+    # 미들웨어가 걸러내겠지만, 안전을 위해 남겨둠
     if not login_user:
         raise UnauthorizedException(detail="로그인이 필요한 서비스입니다.")
     user = db.query(User).filter(User.user_username == login_user).first()
