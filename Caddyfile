@@ -1,7 +1,3 @@
-www.malh.site {
-    redir https://malh.site{uri} permanent
-}
-
-malh.site {
-    reverse_proxy 127.0.0.1:8000
+:80 {
+    reverse_proxy malh-app:8000
 }

@@ -7,12 +7,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env.docker
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      TZ: ${TZ}
     ports:
       - "3307:3306"
     volumes:
@@ -34,23 +28,10 @@ services:
         condition: service_healthy
     env_file:
       - .env.docker
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      STORAGE_DIR: ${STORAGE_DIR}
-      ENV: ${ENV}
-      TZ: ${TZ}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL}
-      OPENAI_TRANSCRIPT_REFINE_MODEL: ${OPENAI_TRANSCRIPT_REFINE_MODEL}
-      OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC: ${OPENAI_TRANSCRIPT_REFINE_TIMEOUT_SEC}
-      INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC: ${INTERVIEW_AUDIO_CLEANUP_INTERVAL_SEC}
-      INTERVIEW_AUDIO_STALE_TTL_SEC: ${INTERVIEW_AUDIO_STALE_TTL_SEC}
-      FASTER_WHISPER_MODEL_SIZE: ${FASTER_WHISPER_MODEL_SIZE}
-      FASTER_WHISPER_DEVICE: ${FASTER_WHISPER_DEVICE}
-      FASTER_WHISPER_COMPUTE_TYPE: ${FASTER_WHISPER_COMPUTE_TYPE}
-      FASTER_WHISPER_BEAM_SIZE: ${FASTER_WHISPER_BEAM_SIZE}
     expose:
-      - "8000:8000"
+      - "8000"
+    ports:
+      - "8001:8000"
     volumes:
       - ./storage:/app/storage
       - ./logs:/app/logs
@@ -63,7 +44,7 @@ services:
     depends_on:
       - app
     ports:
-      - "80:80"
+      - "9000:80"
       - "443:443"
       - "443:443/udp"
     volumes:
